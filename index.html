@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notes Social WebApp</title>
+
+<style>
+:root {
+  --bg-primary: #f0f2f5;
+  --bg-card: #ffffff;
+  --text-primary: #1c1e21;
+  --text-secondary: #65676b;
+  --accent: #1877f2;
+  --accent-hover: #166fe5;
+  --border-color: #e4e6eb;
+  --danger: #e41e3f;
+  --danger-hover: #c91a37;
+  --msg-me: #1877f2;
+  --msg-them: #e4e6eb;
+  --msg-me-text: #ffffff;
+  --msg-them-text: #1c1e21;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #18191a;
+  --bg-card: #242526;
+  --text-primary: #e4e6eb;
+  --text-secondary: #b0b3b8;
+  --accent: #2e89ff;
+  --accent-hover: #4599ff;
+  --border-color: #3e4042;
+  --danger: #f35369;
+  --danger-hover: #f57387;
+  --msg-me: #2e89ff;
+  --msg-them: #3a3b3c;
+  --msg-me-text: #ffffff;
+  --msg-them-text: #e4e6eb;
+}
+
+* { box-sizing: border-box; transition: background-color 0.2s, border-color 0.2s; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-primary); color: var(--text-primary); margin: 0; padding-bottom: 120px; }
+
+header { 
+  background: var(--bg-card); 
+  border-bottom: 1px solid var(--border-color);
+  padding: 15px; 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header h1 { font-size: 1.2rem; margin: 0; color: var(--accent); }
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.theme-btn, .refresh-btn {
+  background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px;
+}
+
+.container { width: 100%; max-width: 500px; margin: 0 auto; padding: 15px; }
+
+.card {
+  background: var(--bg-card);
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+h4 { margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary); }
+
+input, textarea, select {
+  width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 8px;
+  border-radius: 8px; border: 1px solid var(--border-color);
+  background: var(--bg-primary); color: var(--text-primary);
+  font-size: 14px; outline: none;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+button {
+  padding: 10px 16px; border: none; border-radius: 8px;
+  background: var(--accent); color: white;
+  font-weight: 600; font-size: 14px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+button:hover { background: var(--accent-hover); }
+button.danger { background: var(--danger); }
+button.danger:hover { background: var(--danger-hover); }
+button.secondary { background: var(--border-color); color: var(--text-primary); }
+button.secondary:hover { opacity: 0.9; }
+
+/* CREDITS FOOTER */
+footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 10px 0 20px 0;
+}
+
+/* AUTH */
+#auth { max-width: 400px; margin: 60px auto; padding: 24px; text-align: center; }
+#auth input { margin-bottom: 12px; }
+#auth .actions { display: flex; gap: 10px; margin-top: 8px; }
+#auth .actions button { flex: 1; }
+
+/* APP VIEWS INTERFACE */
+.view-panel { display: none; }
+.view-panel.active { display: block; }
+
+/* NAVIGATION BAR */
+.nav-tabs {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg-card); border-top: 1px solid var(--border-color);
+  display: flex; justify-content: space-around; padding: 8px 0; z-index: 100;
+}
+.tab-item {
+  background: none; border: none; color: var(--text-secondary);
+  display: flex; flex-direction: column; align-items: center;
+  font-size: 11px; font-weight: normal; padding: 6px; cursor: pointer; gap: 4px;
+}
+.tab-item:hover { background: none; color: var(--accent); }
+.tab-item.active { color: var(--accent); font-weight: bold; }
+.tab-icon { font-size: 20px; }
+
+/* ROW FORMATS & PROFILE */
+.row { display: flex; align-items: center; gap: 10px; }
+.profile-bar { display: flex; align-items: center; justify-content: space-between; }
+.avatar { font-size: 32px; }
+.user-info { display: flex; align-items: center; gap: 10px; }
+
+/* FEED ITEMS */
+.note-item { 
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+.note-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.note-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; width: 100%; }
+.note-text { font-size: 15px; line-height: 1.4; margin-bottom: 10px; }
+.note-meta { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; display: flex; gap: 12px; }
+.note-actions { display: flex; gap: 8px; }
+.note-actions button { padding: 8px 14px; font-size: 13px; }
+
+.post-del-btn {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; padding: 6px; cursor: pointer;
+  font-size: 14px; color: var(--danger); opacity: 0.6; transition: opacity 0.2s, transform 0.2s;
+}
+.post-del-btn:hover { opacity: 1; background: none; transform: scale(1.15); }
+
+/* LIKE BUTTON POPS EFFECT */
+@keyframes like-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+.liked-active-anim {
+  animation: like-bounce 0.35s ease-in-out;
+  color: #ff3b30 !important;
+}
+
+.item-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--border-color);
+}
+.item-row:last-child { border-bottom: none; }
+
+.online { color: #2db742; font-size: 12px; margin-left: 4px; }
+.privacy-selectors { display: flex; gap: 16px; margin: 8px 0; }
+.privacy-selectors label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.privacy-selectors input { width: auto; margin: 0; }
+
+/* OVERLAY MODAL SYSTEM (COMMENTS & ENGAGEMENT) */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5); z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+@media(min-width: 501px) {
+  .modal-overlay { align-items: center; padding: 20px; }
+}
+.modal-content {
+  background: var(--bg-card); width: 100%; max-width: 500px;
+  border-top-left-radius: 16px; border-top-right-radius: 16px;
+  padding: 20px; max-height: 85vh; display: flex; flex-direction: column;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+}
+@media(min-width: 501px) {
+  .modal-content { border-radius: 16px; max-height: 75vh; }
+}
+.modal-body { overflow-y: auto; flex: 1; margin-bottom: 12px; padding-right: 4px; }
+.modal-close-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.modal-close-header h4 { margin: 0; }
+
+/* COMMENTS DISPLAY */
+.comment-box {
+  background: var(--bg-primary); padding: 10px 12px; border-radius: 12px;
+  margin-bottom: 8px; font-size: 14px;
+}
+.comment-user { font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: var(--accent); }
+
+/* MESSENGER & CHAT WINDOW */
+.chat-user-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer;
+  background: var(--bg-primary);
+}
+.chat-user-item:hover { background: var(--border-color); }
+
+#chatBox {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-card); z-index: 150; margin: 0;
+  display: flex; flex-direction: column; border-radius: 0;
+}
+.chat-header {
+  padding: 15px; border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.chat-header h4 { margin: 0; }
+.typing { font-size: 13px; color: var(--text-secondary); font-style: italic; min-height: 18px; padding: 2px 15px; }
+
+#messages {
+  flex: 1; overflow-y: auto; padding: 15px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.msg-wrapper { display: flex; width: 100%; align-items: center; gap: 6px; }
+.msg-wrapper.me { justify-content: flex-end; }
+.msg-wrapper.them { justify-content: flex-start; }
+
+.msg { 
+  padding: 10px 14px; border-radius: 16px; max-width: 75%; 
+  font-size: 14px; word-break: break-word; position: relative;
+}
+.msg-wrapper.me .msg { background: var(--msg-me); color: var(--msg-me-text); border-bottom-right-radius: 4px; }
+.msg-wrapper.them .msg { background: var(--msg-them); color: var(--msg-them-text); border-bottom-left-radius: 4px; }
+
+.msg-del-btn {
+  background: none; border: none; padding: 4px; cursor: pointer;
+  font-size: 12px; opacity: 0; transition: opacity 0.2s; color: var(--danger);
+}
+.msg-wrapper:hover .msg-del-btn { opacity: 1; }
+
+.chat-input-area {
+  padding: 12px; border-top: 1px solid var(--border-color);
+  display: flex; gap: 8px; align-items: center; background: var(--bg-card);
+}
+.chat-input-area input { margin: 0; flex: 1; }
+.chat-input-area button { height: 42px; }
+
+.filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filter-grid input { margin-top: 0; margin-bottom: 0; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Notes Social WebApp</h1>
+  <div class="header-actions">
+    <button class="refresh-btn" onclick="manualRefresh()" title="Refresh Data">🔄</button>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeToggleBtn">🌙</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- AUTH CARD -->
+  <div class="card" id="auth">
+    <h4>Welcome to Your Notes!</h4>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <div class="actions">
+      <button onclick="login()">Login</button>
+      <button class="secondary" onclick="signup()">Sign Up</button>
+    </div>
+  </div>
+
+  <!-- APPLICATION CORE CONTENT -->
+  <div id="app" style="display:none;">
+    
+    <!-- TOP USER PROFILE HEADER -->
+    <div class="card profile-bar">
+      <div class="user-info">
+        <span id="avatar" class="avatar">😀</span>
+        <b id="userDisplay"></b>
+      </div>
+      <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- VIEW 1: FEED VIEW PANEL -->
+    <div id="view-feed" class="view-panel active">
+      <div class="card">
+        <h4>Create a Note</h4>
+        <textarea id="noteInput" placeholder="What's on your mind?" rows="3"></textarea>
+        <div class="privacy-selectors">
+          <label><input type="radio" name="privacy" value="public" checked> Public</label>
+          <label><input type="radio" name="privacy" value="private"> Private</label>
+        </div>
+        <button style="width: 100%;" onclick="addNote()">Post Content</button>
+      </div>
+
+      <div class="card">
+        <h4>Filter Stream</h4>
+        <div class="filter-grid">
+          <input id="filterName" placeholder="Filter name">
+          <input id="filterDate" type="date">
+        </div>
+        <button style="width: 100%; margin-top: 10px;" onclick="loadFeed()">Apply Filters</button>
+      </div>
+
+      <div id="feed"></div>
+    </div>
+
+    <!-- VIEW 2: FRIENDS VIEW PANEL -->
+    <div id="view-friends" class="view-panel">
+      <div class="card">
+        <h4>Add Connections</h4>
+        <div style="display:flex; gap: 8px;">
+          <input id="friendInput" placeholder="Enter username..." style="margin:0;">
+          <button onclick="addFriend()">Connect</button>
+        </div>
+      </div>
+
+      <div class="card" id="notif" style="display:none;">🔔 Notifications (0)</div>
+      <div class="card" id="requests"><h4>Requests</h4><div id="requestsList">None</div></div>
+
+      <div class="card">
+        <h4>Your Friends</h4>
+        <div id="friendsList">None</div>
+      </div>
+      
+      <div class="card">
+        <h4>Settings</h4>
+        <div style="margin-bottom: 15px;">
+          <label for="changeUsernameInput" style="font-size: 14px; font-weight: 600;">Change Display Name</label>
+          <div style="display: flex; gap: 8px;">
+            <input id="changeUsernameInput" placeholder="Enter new display name..." style="margin: 4px 0 0 0;">
+            <button style="margin-top: 4px;" onclick="updateProfileName()">Save</button>
+          </div>
+        </div>
+
+        <label for="avatarSelect" style="font-size: 14px; font-weight: 600;">Modify Avatar</label>
+        <select id="avatarSelect">
+          <option>😀</option><option>😎</option><option>🤖</option>
+          <option>🐱</option><option>🔥</option><option>👻</option>
+        </select>
+        <button style="width:100%; margin-top: 4px;" onclick="changeAvatar()">Update Graphic</button>
+      </div>
+    </div>
+
+    <!-- VIEW 3: MESSENGER VIEW PANEL -->
+    <div id="view-messages" class="view-panel">
+      <div class="card">
+        <h4>Active Conversations</h4>
+        <div id="chatFriends">No active chats</div>
+      </div>
+    </div>
+
+    <!-- CHAT MODULE OVERLAY WINDOW -->
+    <div class="card" id="chatBox" style="display:none;">
+      <div class="chat-header">
+        <button class="secondary" onclick="closeChat()">← Back</button>
+        <h4 id="chatWith">Chat</h4>
+        <div style="width: 60px;"></div>
+      </div>
+      <div id="typingStatus" class="typing"></div>
+      <div id="messages"></div>
+      <div class="chat-input-area">
+        <input id="chatInput" placeholder="Type message..." oninput="typing()">
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <!-- DETAILED NOTE/COMMENT INTERACTION OVERLAY MODAL -->
+    <div class="modal-overlay" id="noteModal" style="display:none;" onclick="closeNoteModal()">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-close-header">
+          <h4 id="modalAuthor">Post Details</h4>
+          <button class="secondary" style="padding:4px 10px;" onclick="closeNoteModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="modalPostText" style="font-size:16px; line-height:1.4; margin-top:0; white-space:pre-wrap;"></p>
+          <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;"></div>
+          <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
+          <h5>Comments</h5>
+          <div id="modalCommentsContainer"></div>
+        </div>
+        <div style="display:flex; gap:8px; border-top:1px solid var(--border-color); padding-top:10px;">
+          <input id="modalCommentInput" placeholder="Write a comment..." style="margin:0;">
+          <button id="modalCommentSubmitBtn">Reply</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN FOOTER CREDIT SECTION -->
+    <footer>
+      @regalawebstyle
+    </footer>
+
+    <!-- STICKY BOTTOM TAB NAVIGATION -->
+    <nav class="nav-tabs">
+      <button class="tab-item active" onclick="switchView('feed', this)">
+        <span class="tab-icon">📰</span><span>Feed</span>
+      </button>
+      <button class="tab-item" onclick="switchView('friends', this)">
+        <span class="tab-icon">👥</span><span>Friends</span>
+      </button>
+      <button class="tab-item" onclick="switchView('messages', this)">
+        <span class="tab-icon">💬</span><span>Chats</span>
+      </button>
+    </nav>
+
+  </div>
+</div>
+
+<script>
+const DB_URL = "https://johnshedb-233f8-default-rtdb.firebaseio.com";
+
+let currentUser=null, lastData="";
+let currentChatUser=null, lastChatData="";
+let typingTimeout;
+let currentActiveNoteId = null;
+
+// INITIALIZE THEME
+if (localStorage.getItem('theme') === 'dark') {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  document.getElementById('themeToggleBtn').innerText = '☀️';
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  if (currentTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+    document.getElementById('themeToggleBtn').innerText = '🌙';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+    document.getElementById('themeToggleBtn').innerText = '☀️';
+  }
+}
+
+// MANUAL REFRESH FUNCTION
+function manualRefresh() {
+  if (!currentUser) return;
+  loadAll();
+  if (currentActiveNoteId) {
+    syncModalDetails(currentActiveNoteId);
+  }
+  let refreshBtn = document.querySelector('.refresh-btn');
+  refreshBtn.style.transform = 'rotate(360deg)';
+  refreshBtn.style.transition = 'transform 0.5s ease';
+  setTimeout(() => {
+    refreshBtn.style.transform = 'none';
+    refreshBtn.style.transition = 'none';
+  }, 500);
+}
+
+// TAB MANAGEMENT VIEW SWAPPING
+function switchView(viewId, btnToken) {
+  document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
+  
+  document.getElementById(`view-${viewId}`).classList.add('active');
+  btnToken.classList.add('active');
+  
+  if(viewId === 'feed') loadFeed();
+  if(viewId === 'friends') { loadFriends(); loadRequests(); }
+  if(viewId === 'messages') loadChatFriends();
+}
+
+// AUTHENTICATION
+async function signup(){
+  let u=username.value.trim(), p=password.value.trim();
+  if(!u||!p) return alert("Fill fields");
+
+  let r=await fetch(DB_URL+"/users/"+u+".json");
+  if(await r.json()) return alert("User exists");
+
+  await fetch(DB_URL+"/users/"+u+".json",{method:"PUT",
+    body:JSON.stringify({password:p,avatar:"😀",displayName:u})});
+
+  alert("Created");
+}
+
+async function login(){
+  let u=username.value.trim(), p=password.value.trim();
+  let r=await fetch(DB_URL+"/users/"+u+".json");
+  let d=await r.json();
+
+  if(!d) return alert("No user");
+  if(d.password!==p) return alert("Wrong password");
+
+  currentUser=u;
+  auth.style.display="none";
+  app.style.display="block";
+
+  userDisplay.innerText=d.displayName||u;
+  changeUsernameInput.value=d.displayName||u;
+  avatar.innerText=d.avatar||"😀";
+
+  setOnline(true);
+  loadAll();
+}
+
+// ONLINE HEURISTICS
+async function setOnline(status){
+  await fetch(DB_URL+`/users/${currentUser}.json`,{
+    method:"PATCH",
+    body:JSON.stringify({online:status})
+  });
+}
+
+// AVATAR HANDLER
+async function changeAvatar(){
+  let a=avatarSelect.value;
+  await fetch(DB_URL+"/users/"+currentUser+".json",
+    {method:"PATCH",body:JSON.stringify({avatar:a})});
+  avatar.innerText=a;
+}
+
+// USERNAME/DISPLAY-NAME HANDLER
+async function updateProfileName() {
+  let newName = changeUsernameInput.value.trim();
+  if(!newName) return alert("Name field cannot be blank");
+  
+  await fetch(DB_URL+`/users/${currentUser}.json`, {
+    method: "PATCH",
+    body: JSON.stringify({ displayName: newName })
+  });
+  
+  userDisplay.innerText = newName;
+  alert("Profile name updated successfully!");
+  loadFeed();
+}
+
+// CONNECTIONS & REQUEST HANDLING
+async function addFriend(){
+  let f=friendInput.value.trim();
+  if(!f) return;
+  if(f === currentUser) return alert("You cannot add yourself");
+  let r=await fetch(DB_URL+"/users/"+f+".json");
+  if(!(await r.json())) return alert("User not exist");
+
+  await fetch(DB_URL+"/users/"+f+"/requests/"+currentUser+".json",
+    {method:"PUT",body:"true"});
+  alert("Request sent");
+  friendInput.value = "";
+}
+
+async function loadRequests(){
+  let r=await fetch(DB_URL+"/users/"+currentUser+"/requests.json");
+  let data=await r.json() || {};
+  let target = document.getElementById("requestsList");
+
+  if(Object.keys(data).length === 0){ 
+    target.innerHTML="None"; 
+    return;
+  }
+
+  Array.from(target.children).forEach(child => {
+    if(child.id && !data[child.id.replace('req-', '')]) child.remove();
+  });
+
+  if(target.innerHTML === "None") target.innerHTML = "";
+
+  for(let u in data){
+    let existing = document.getElementById(`req-${u}`);
+    if(!existing) {
+      let uRes = await fetch(DB_URL+"/users/"+u+".json");
+      let userData = await uRes.json() || {};
+      let nameToShow = userData.displayName || u;
+
+      let div = document.createElement("div");
+      div.className = "item-row";
+      div.id = `req-${u}`;
+      div.innerHTML = `
+        <span>${nameToShow} (@${u})</span>
+        <div>
+          <button style="padding:4px 8px;" onclick="accept('${u}')">✔</button>
+          <button class="danger" style="padding:4px 8px;" onclick="reject('${u}')">✖</button>
+        </div>
+      `;
+      target.appendChild(div);
+    }
+  }
+}
+
+async function accept(u){
+  await fetch(DB_URL+"/users/"+currentUser+"/friends/"+u+".json",{method:"PUT",body:"true"});
+  await fetch(DB_URL+"/users/"+u+"/friends/"+currentUser+".json",{method:"PUT",body:"true"});
+  await fetch(DB_URL+"/users/"+currentUser+"/requests/"+u+".json",{method:"DELETE"});
+  loadAll();
+}
+
+async function reject(u){
+  await fetch(DB_URL+"/users/"+currentUser+"/requests/"+u+".json",{method:"DELETE"});
+  let existing = document.getElementById(`req-${u}`);
+  if(existing) existing.remove();
+  loadRequests();
+}
+
+async function loadFriends(){
+  let r=await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
+  let f=await r.json() || {};
+
+  if(Object.keys(f).length === 0){
+    friendsList.innerHTML="None";
+    return;
+  }
+
+  Array.from(friendsList.children).forEach(child => {
+    if(child.id && !f[child.id.replace('friend-', '')]) child.remove();
+  });
+
+  if(friendsList.innerHTML === "None") friendsList.innerHTML = "";
+
+  for(let x in f){
+    let existing = document.getElementById(`friend-${x}`);
+    if(!existing) {
+      let uRes = await fetch(DB_URL+"/users/"+x+".json");
+      let userData = await uRes.json() || {};
+      let nameToShow = userData.displayName || x;
+
+      let div = document.createElement("div");
+      div.className = "item-row";
+      div.id = `friend-${x}`;
+      div.innerHTML = `
+        <span>${nameToShow} (@${x})</span>
+        <button class="danger" style="padding: 4px 8px; font-size:12px;" onclick="unfriend('${x}')">Unfriend</button>
+      `;
+      friendsList.appendChild(div);
+    }
+  }
+}
+
+async function unfriend(f){
+  await fetch(DB_URL+"/users/"+currentUser+"/friends/"+f+".json",{method:"DELETE"});
+  await fetch(DB_URL+"/f/"+currentUser+".json",{method:"DELETE"});
+  let existing = document.getElementById(`friend-${f}`);
+  if(existing) existing.remove();
+  loadFriends();
+}
+
+// FEED LOGIC
+async function addNote(){
+  let text=noteInput.value.trim();
+  let privacy=document.querySelector("input[name=privacy]:checked").value;
+  if(!text) return;
+
+  let id=Date.now();
+  await fetch(DB_URL+"/notes/"+id+".json",{method:"PUT",
+    body:JSON.stringify({text, owner:currentUser, privacy})});
+  noteInput.value="";
+  loadFeed();
+}
+
+async function deleteNote(id, event){
+  if(event) event.stopPropagation(); 
+  if(!confirm("Are you sure you want to delete this post?")) return;
+
+  await fetch(DB_URL+`/notes/${id}.json`, { method: "DELETE" });
+  if (currentActiveNoteId === id) {
+    closeNoteModal();
+  }
+  loadFeed();
+}
+
+async function like(id, event){
+  if(event) event.stopPropagation();
+  
+  let path=`/notes/${id}/likes/${currentUser}.json`;
+  let r=await fetch(DB_URL+path);
+  let liked=await r.json();
+
+  if(liked)
+    await fetch(DB_URL+path,{method:"DELETE"});
+  else
+    await fetch(DB_URL+path,{method:"PUT",body:"true"});
+  
+  let targetBtn = event ? event.currentTarget : null;
+  if(targetBtn) {
+    targetBtn.classList.add("liked-active-anim");
+    setTimeout(() => targetBtn.classList.remove("liked-active-anim"), 350);
+  }
+
+  loadFeed();
+  if(currentActiveNoteId === id) {
+    setTimeout(() => syncModalDetails(id), 100);
+  }
+}
+
+function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
+  currentActiveNoteId = id;
+  noteModal.style.display = "flex";
+  modalAuthor.innerText = `${userAvatar} ${displayedAuthorName}'s Post`;
+  modalPostText.innerText = noteObj.text;
+  
+  modalCommentSubmitBtn.onclick = () => addModalComment(id);
+  syncModalDetails(id);
+}
+
+function closeNoteModal() {
+  noteModal.style.display = "none";
+  currentActiveNoteId = null;
+}
+
+async function syncModalDetails(id) {
+  if (currentActiveNoteId !== id) return;
+  
+  let r = await fetch(DB_URL+`/notes/${id}.json`);
+  let note = await r.json();
+  if(!note) return;
+
+  let likesCount = note.likes ? Object.keys(note.likes).length : 0;
+  let commentsCount = note.comments ? Object.keys(note.comments).length : 0;
+
+  modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 💬 ${commentsCount} Comments`;
+
+  let container = document.getElementById("modalCommentsContainer");
+  container.innerHTML = "";
+
+  if(!note.comments) {
+    container.innerHTML = "<div style='color:var(--text-secondary); font-style:italic; padding:10px 0;'>No comments yet. Be the first to reply!</div>";
+    return;
+  }
+
+  for(let [cId, c] of Object.entries(note.comments)) {
+    let commenterRes = await fetch(DB_URL+`/users/${c.user}.json`);
+    let commenterData = await commenterRes.json() || {};
+    let displayCommenterName = commenterData.displayName || c.user;
+
+    let div = document.createElement("div");
+    div.className = "comment-box";
+    div.innerHTML = `<span class="comment-user">@${displayCommenterName}</span> ${c.text}`;
+    container.appendChild(div);
+  }
+}
+
+async function addModalComment(id) {
+  let t = modalCommentInput.value.trim();
+  if(!t) return;
+
+  await fetch(DB_URL+`/notes/${id}/comments/${Date.now()}.json`,
+    {method:"PUT",body:JSON.stringify({text:t,user:currentUser})});
+  
+  modalCommentInput.value = "";
+  syncModalDetails(id);
+  loadFeed();
+}
+
+async function loadFeed(){
+  let r=await fetch(DB_URL+"/notes.json");
+  let notes=await r.json();
+
+  let fRes=await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
+  let friends=await fRes.json()||{};
+
+  let filterN = filterName.value.trim().toLowerCase();
+  let filterD = filterDate.value;
+
+  feed.innerHTML="";
+
+  for(let [id,n] of Object.entries(notes||{}).reverse()){
+    let isOwner=n.owner===currentUser;
+    let isFriend=friends[n.owner];
+
+    if(!(isOwner || (n.privacy==="public"&&isFriend))) continue;
+
+    let userRes = await fetch(DB_URL+"/users/"+n.owner+".json");
+    let user = await userRes.json() || {};
+    let authorDisplayName = user.displayName || n.owner;
+
+    if(filterN && !authorDisplayName.toLowerCase().includes(filterN) && !n.owner.toLowerCase().includes(filterN)) continue;
+    if(filterD) {
+      let postDate = new Date(Number(id)).toISOString().split('T')[0];
+      if(postDate !== filterD) continue;
+    }
+
+    let div=document.createElement("div");
+    div.className="card note-item";
+    
+    div.onclick = () => openNoteModal(id, n, user.avatar || "😀", authorDisplayName);
+
+    let likesCount = n.likes ? Object.keys(n.likes).length : 0;
+    let commentsCount = n.comments ? Object.keys(n.comments).length : 0;
+    let hasUserLiked = n.likes && n.likes[currentUser];
+
+    let deleteButtonMarkup = isOwner 
+      ? `<button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>` 
+      : "";
+
+    div.innerHTML=`
+      ${deleteButtonMarkup}
+      <div class="note-header">
+        <span class="avatar">${user.avatar||"😀"}</span>
+        <b>${authorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${n.owner}</span>
+      </div>
+      <div class="note-text">${n.text}</div>
+      <div class="note-meta">
+        <span>❤️ ${likesCount} Likes</span>
+        <span>💬 ${commentsCount} Comments</span>
+      </div>
+      <div class="note-actions">
+        <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
+        <button class="secondary" onclick="event.stopPropagation(); openNoteModal('${id}', ${JSON.stringify(n).replace(/"/g, '&quot;')}, '${user.avatar || "😀"}', '${authorDisplayName}')">💬 Comment</button>
+      </div>
+    `;
+
+    feed.appendChild(div);
+  }
+}
+
+// MESSENGER ARCHITECTURE
+function chatId(u1,u2){
+  return [u1,u2].sort().join("_");
+}
+
+async function loadChatFriends(){
+  let r = await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
+  let f = await r.json() || {};
+
+  if(!f || Object.keys(f).length === 0){
+    chatFriends.innerHTML = "<div style='color:var(--text-secondary); padding:10px;'>No friends yet. Add connections to chat!</div>";
+    return;
+  }
+
+  if(chatFriends.innerHTML.includes("No friends yet")) chatFriends.innerHTML = "";
+
+  Array.from(chatFriends.children).forEach(child => {
+    if(child.id && !f[child.id.replace('chatuser-', '')]) child.remove();
+  });
+
+  for(let x in f){
+    let uRes = await fetch(DB_URL+"/users/"+x+".json");
+    let u = await uRes.json() || {};
+    let friendDisplayName = u.displayName || x;
+
+    let existingRow = document.getElementById(`chatuser-${x}`);
+    
+    if(!existingRow) {
+      let div = document.createElement("div");
+      div.className = "chat-user-item";
+      div.id = `chatuser-${x}`;
+      div.onclick = () => openChat(x);
+
+      let nameSpan = document.createElement("span");
+      nameSpan.style.fontWeight = "600";
+      nameSpan.className = "username-label";
+      nameSpan.innerText = friendDisplayName;
+
+      let dot = document.createElement("span");
+      dot.className = "online";
+      dot.style.display = u.online ? "inline" : "none";
+      dot.innerText = " ● Online";
+      nameSpan.appendChild(dot);
+
+      let actionIndicator = document.createElement("span");
+      actionIndicator.innerText = "💬";
+
+      div.appendChild(nameSpan);
+      div.appendChild(actionIndicator);
+      chatFriends.appendChild(div);
+    } else {
+      let dot = existingRow.querySelector(".online");
+      if (dot) {
+        dot.style.display = u.online ? "inline" : "none";
+      }
+    }
+  }
+}
+
+async function openChat(user){
+  currentChatUser=user;
+  chatBox.style.display="flex";
+  
+  let targetUserRes = await fetch(DB_URL+`/users/${user}.json`);
+  let targetUserData = await targetUserRes.json() || {};
+  chatWith.innerText = targetUserData.displayName || user;
+
+  messages.innerHTML = ""; 
+  lastChatData = "";
+  loadMessages();
+}
+
+function closeChat() {
+  chatBox.style.display="none";
+  currentChatUser=null;
+  lastChatData = "";
+}
+
+async function sendMessage(){
+  let text=chatInput.value.trim();
+  if(!text) return;
+
+  let id=Date.now();
+  let cid=chatId(currentUser,currentChatUser);
+
+  await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
+    method:"PUT",
+    body:JSON.stringify({
+      text,
+      sender:currentUser,
+      seen:false
+    })
+  });
+
+  chatInput.value="";
+  loadMessages();
+}
+
+async function deleteMessage(msgId) {
+  if(!confirm("Delete this message?")) return;
+  let cid=chatId(currentUser,currentChatUser);
+  await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
+    method: "DELETE"
+  });
+  let element = document.getElementById(`msg-${msgId}`);
+  if(element) element.remove();
+}
+
+async function loadMessages(){
+  if(!currentChatUser) return;
+  let cid=chatId(currentUser,currentChatUser);
+
+  let r=await fetch(DB_URL+`/chats/${cid}/messages.json`);
+  let data=await r.json() || {};
+
+  if(Object.keys(data).length === 0){ 
+    messages.innerHTML="<div style='text-align:center; color:var(--text-secondary); margin-top:20px;'>No messages. Say Hello!</div>"; 
+    return;
+  }
+
+  if(messages.innerHTML.includes("No messages")) messages.innerHTML = "";
+
+  Array.from(messages.children).forEach(child => {
+    if(child.id && !data[child.id.replace('msg-', '')]) child.remove();
+  });
+
+  let addedNewMessage = false;
+
+  for(let [id,m] of Object.entries(data)){
+    let existingMsg = document.getElementById(`msg-${id}`);
+    
+    if(!existingMsg) {
+      let wrapper = document.createElement("div");
+      wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
+      wrapper.id = `msg-${id}`;
+
+      if(m.sender === currentUser) {
+        let delBtn = document.createElement("button");
+        delBtn.className = "msg-del-btn";
+        delBtn.innerHTML = "🗑️";
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
+        wrapper.appendChild(delBtn);
+      }
+
+      let div=document.createElement("div");
+      div.className="msg";
+      div.textContent = m.text;
+
+      if(m.sender===currentUser && m.seen) {
+        let seenEye = document.createElement("span");
+        seenEye.className = "seen-status";
+        seenEye.style.fontSize = "10px";
+        seenEye.style.marginLeft = "6px";
+        seenEye.innerText = "👁️";
+        div.appendChild(seenEye);
+      }
+
+      wrapper.appendChild(div);
+      messages.appendChild(wrapper);
+      addedNewMessage = true;
+    } else {
+      if(m.sender===currentUser && m.seen) {
+        let msgBubble = existingMsg.querySelector(".msg");
+        if(msgBubble && !msgBubble.querySelector(".seen-status")) {
+          let seenEye = document.createElement("span");
+          seenEye.className = "seen-status";
+          seenEye.style.fontSize = "10px";
+          seenEye.style.marginLeft = "6px";
+          seenEye.innerText = "👁️";
+          msgBubble.appendChild(seenEye);
+        }
+      }
+    }
+
+    if(m.sender !== currentUser && !m.seen){
+      await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
+        method:"PATCH",
+        body:JSON.stringify({seen:true})
+      });
+    }
+  }
+
+  if(addedNewMessage) {
+    messages.scrollTop=messages.scrollHeight;
+  }
+}
+
+// TYPING ENGINE INDICATORS
+async function typing(){
+  let cid=chatId(currentUser,currentChatUser);
+
+  await fetch(DB_URL+`/chats/${cid}/typing/${currentUser}.json`,{
+    method:"PUT", body:"true"
+  });
+
+  clearTimeout(typingTimeout);
+  typingTimeout=setTimeout(async()=>{
+    await fetch(DB_URL+`/chats/${cid}/typing/${currentUser}.json`,{
+      method:"DELETE"
+    });
+  },1000);
+}
+
+async function loadTyping(){
+  if(!currentChatUser) return;
+  let cid=chatId(currentUser,currentChatUser);
+
+  let r=await fetch(DB_URL+`/chats/${cid}/typing.json`);
+  let d=await r.json();
+
+  if(d && d[currentChatUser])
+    typingStatus.innerText=currentChatUser+" is typing...";
+  else
+    typingStatus.innerText="";
+}
+
+// LOOPS & SYNCHRONIZATION RUNTIMES
+setInterval(async()=>{
+  if(!currentChatUser) return;
+  loadMessages();
+  loadTyping();
+},1200);
+
+function loadAll(){
+  loadFeed();
+  loadFriends();
+  loadRequests();
+  loadChatFriends();
+}
+
+setInterval(async()=>{
+  if(!currentUser) return;
+
+  if(document.getElementById('view-feed').classList.contains('active')) {
+    let r=await fetch(DB_URL+"/notes.json");
+    let d=JSON.stringify(await r.json());
+    if(d!==lastData){
+      lastData=d;
+      loadFeed();
+    }
+    if(currentActiveNoteId) {
+      syncModalDetails(currentActiveNoteId);
+    }
+  }
+  if(document.getElementById('view-friends').classList.contains('active')) {
+    loadFriends();
+    loadRequests();
+  }
+  if(document.getElementById('view-messages').classList.contains('active')) {
+    loadChatFriends();
+  }
+
+},2000);
+
+async function logout(){
+  if(currentUser) {
+    await setOnline(false);
+  }
+  location.reload();
+}
+
+window.addEventListener('beforeunload', () => {
+  if(currentUser) setOnline(false);
+});
+</script>
+
+</body>
+</html>
