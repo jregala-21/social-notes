@@ -85,13 +85,17 @@ input, textarea, select {
 }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
+/* Universal Button Styles & Animations */
 button {
   padding: 10px 16px; border: none; border-radius: 8px;
   background: var(--accent); color: white;
   font-weight: 600; font-size: 14px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: transform 0.1s ease, background-color 0.2s ease, opacity 0.2s ease;
 }
 button:hover { background: var(--accent-hover); }
+button:active { transform: scale(0.95); } /* Tactile button press animation */
+
 button.danger { background: var(--danger); }
 button.danger:hover { background: var(--danger-hover); }
 button.secondary { background: var(--border-color); color: var(--text-primary); }
@@ -111,9 +115,16 @@ footer {
 #auth .actions { display: flex; gap: 10px; margin-top: 8px; }
 #auth .actions button { flex: 1; }
 
-/* APP VIEWS INTERFACE */
+/* APP VIEWS INTERFACE & TAB ANIMATIONS */
 .view-panel { display: none; }
-.view-panel.active { display: block; }
+@keyframes fadeInSlide {
+  0% { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.view-panel.active { 
+  display: block; 
+  animation: fadeInSlide 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+}
 
 /* NAVIGATION BAR */
 .nav-tabs {
@@ -128,6 +139,7 @@ footer {
 }
 .tab-item:hover { background: none; color: var(--accent); }
 .tab-item.active { color: var(--accent); font-weight: bold; }
+.tab-item:active { transform: scale(0.9); }
 .tab-icon { font-size: 20px; }
 
 /* ROW FORMATS & PROFILE */
@@ -213,6 +225,26 @@ footer {
 .modal-body { overflow-y: auto; flex: 1; margin-bottom: 12px; padding-right: 4px; }
 .modal-close-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .modal-close-header h4 { margin: 0; }
+
+/* CUSTOM GLOBAL ALERT & CONFIRM MODALS */
+.global-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6); z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: opacity 0.2s ease;
+}
+.global-modal-overlay.show { opacity: 1; visibility: visible; }
+.global-modal-box {
+  background: var(--bg-card); width: 90%; max-width: 340px;
+  border-radius: 16px; padding: 24px 20px; text-align: center;
+  transform: scale(0.85); transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+.global-modal-overlay.show .global-modal-box { transform: scale(1); }
+.global-modal-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: var(--text-primary); }
+.global-modal-msg { font-size: 15px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; white-space: pre-wrap; }
+.global-modal-actions { display: flex; gap: 10px; justify-content: center; }
+.global-modal-actions button { flex: 1; padding: 12px; }
 
 /* COMMENTS DISPLAY */
 .comment-box {
@@ -461,6 +493,14 @@ footer {
   </div>
 </div>
 
+<div class="global-modal-overlay" id="customAppModal">
+  <div class="global-modal-box">
+    <div class="global-modal-title" id="customModalTitle">Notification</div>
+    <div class="global-modal-msg" id="customModalMsg"></div>
+    <div class="global-modal-actions" id="customModalActions"></div>
+  </div>
+</div>
+
 <script>
 const DB_URL = "https://johnshedb-233f8-default-rtdb.firebaseio.com";
 
@@ -482,6 +522,49 @@ const CHAT_GIF_COLLECTION = [
   "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnAydnJzdDhrMmJpZHJidmdtcDN5NXgzYXRka3AxdTFqbnZhcW9ubyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9oNGCw56GoJQA66Zs/giphy.gif",
   "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmZud2V1ODJmZnV3a3d5eGF6azVhcTJ5dzV5d2w4NXZkMmsxeDVrMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5ntdy5qmgfRJTWNYzV/giphy.gif"
 ];
+
+// --- CUSTOM MODAL HANDLERS ---
+function showCustomAlert(msg, title = "Notification", onCloseCallback = null) {
+  const overlay = document.getElementById('customAppModal');
+  document.getElementById('customModalTitle').innerText = title;
+  document.getElementById('customModalMsg').innerText = msg;
+  
+  // Attach the callback dynamically to the OK button window
+  document.getElementById('customModalActions').innerHTML = `<button id="customAlertOkBtn">OK</button>`;
+  
+  document.getElementById('customAlertOkBtn').onclick = function() {
+    closeCustomModal();
+    if (typeof onCloseCallback === 'function') {
+      onCloseCallback();
+    }
+  };
+  
+  overlay.classList.add('show');
+}
+
+function showCustomConfirm(msg, onConfirm, title = "Please Confirm") {
+  const overlay = document.getElementById('customAppModal');
+  document.getElementById('customModalTitle').innerText = title;
+  document.getElementById('customModalMsg').innerText = msg;
+  document.getElementById('customModalActions').innerHTML = `
+    <button class="secondary" onclick="closeCustomModal()">Cancel</button>
+    <button class="danger" onclick="closeCustomModal(); executeConfirmCallback()">Confirm</button>
+  `;
+  window.pendingConfirmCallback = onConfirm; // Store temporarily
+  overlay.classList.add('show');
+}
+
+function closeCustomModal() {
+  document.getElementById('customAppModal').classList.remove('show');
+}
+
+function executeConfirmCallback() {
+  if (typeof window.pendingConfirmCallback === 'function') {
+    window.pendingConfirmCallback();
+    window.pendingConfirmCallback = null;
+  }
+}
+// -----------------------------
 
 // INITIALIZE THEME
 if (localStorage.getItem('theme') === 'dark') {
@@ -520,7 +603,14 @@ function manualRefresh() {
 
 // TAB MANAGEMENT VIEW SWAPPING
 function switchView(viewId, btnToken) {
-  document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+  // Reset animation states dynamically to trigger slide-in properly
+  document.querySelectorAll('.view-panel').forEach(panel => {
+    panel.style.animation = 'none'; 
+    panel.offsetHeight; // trigger reflow
+    panel.style.animation = null; 
+    panel.classList.remove('active');
+  });
+  
   document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
   
   document.getElementById(`view-${viewId}`).classList.add('active');
@@ -538,7 +628,7 @@ function previewAttachedFile(event) {
 
   // Strict Protection Check: Block PDFs explicitly
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-    alert("Error: PDF files are not acceptable! Please upload an image file.");
+    showCustomAlert("PDF files are not acceptable! Please upload an image file instead.", "Invalid File Type");
     clearAttachedFile();
     return;
   }
@@ -563,36 +653,47 @@ function clearAttachedFile(event) {
 // AUTHENTICATION
 async function signup(){
   let u=username.value.trim(), p=password.value.trim();
-  if(!u||!p) return alert("Fill fields");
+  if(!u||!p) return showCustomAlert("Please fill in all fields before signing up.", "Missing Info");
 
   let r=await fetch(DB_URL+"/users/"+u+".json");
-  if(await r.json()) return alert("User exists");
+  if(await r.json()) return showCustomAlert("This username is already taken. Try another.", "Account Exists");
 
-  await fetch(DB_URL+"/users/"+u+".json",{method:"PUT",
-    body:JSON.stringify({password:p,avatar:"😀",displayName:u})});
+  await fetch(DB_URL+"/users/"+u+".json",{
+    method:"PUT",
+    body:JSON.stringify({password:p,avatar:"😀",displayName:u})
+  });
 
-  alert("Created");
+  // Passes a cleanup routine that fires ONLY after the user clicks "OK"
+  showCustomAlert("Your account has been created successfully! You can now log in.", "Success", () => {
+    username.value = "";
+    password.value = "";
+  });
 }
 
 async function login(){
   let u=username.value.trim(), p=password.value.trim();
+  if(!u||!p) return showCustomAlert("Please enter your username and password.", "Missing Info");
+
   let r=await fetch(DB_URL+"/users/"+u+".json");
   let d=await r.json();
 
-  if(!d) return alert("No user");
-  if(d.password!==p) return alert("Wrong password");
+  if(!d) return showCustomAlert("Account not found. Please check your username.", "Login Failed");
+  if(d.password!==p) return showCustomAlert("Incorrect password provided.", "Login Failed");
 
-  currentUser=u;
-  auth.style.display="none";
-  app.style.display="block";
+  // Show welcome notification first, then transition layouts once "OK" is tapped
+  showCustomAlert(`Welcome back, ${d.displayName || u}!`, "Login Successful", () => {
+    currentUser=u;
+    auth.style.display="none";
+    app.style.display="block";
 
-  userDisplay.innerText=d.displayName||u;
-  changeUsernameInput.value=d.displayName||u;
-  avatar.innerText=d.avatar||"😀";
+    userDisplay.innerText=d.displayName||u;
+    changeUsernameInput.value=d.displayName||u;
+    avatar.innerText=d.avatar||"😀";
 
-  setOnline(true);
-  loadAll();
-  buildGifDrawerGrid();
+    setOnline(true);
+    loadAll();
+    buildGifDrawerGrid();
+  });
 }
 
 // ONLINE HEURISTICS
@@ -614,7 +715,7 @@ async function changeAvatar(){
 // USERNAME/DISPLAY-NAME HANDLER
 async function updateProfileName() {
   let newName = changeUsernameInput.value.trim();
-  if(!newName) return alert("Name field cannot be blank");
+  if(!newName) return showCustomAlert("Display name cannot be blank.", "Error");
   
   await fetch(DB_URL+`/users/${currentUser}.json`, {
     method: "PATCH",
@@ -622,7 +723,7 @@ async function updateProfileName() {
   });
   
   userDisplay.innerText = newName;
-  alert("Profile name updated successfully!");
+  showCustomAlert("Your profile name has been updated successfully!", "Profile Updated");
   loadFeed();
 }
 
@@ -630,13 +731,15 @@ async function updateProfileName() {
 async function addFriend(){
   let f=friendInput.value.trim();
   if(!f) return;
-  if(f === currentUser) return alert("You cannot add yourself");
+  if(f === currentUser) return showCustomAlert("You cannot send a connection request to yourself.", "Action Denied");
+  
   let r=await fetch(DB_URL+"/users/"+f+".json");
-  if(!(await r.json())) return alert("User not exist");
+  if(!(await r.json())) return showCustomAlert("The user you are trying to add does not exist.", "Not Found");
 
   await fetch(DB_URL+"/users/"+f+"/requests/"+currentUser+".json",
     {method:"PUT",body:"true"});
-  alert("Request sent");
+  
+  showCustomAlert(`Connection request sent to @${f}!`, "Request Sent");
   friendInput.value = "";
 }
 
@@ -743,7 +846,6 @@ async function addNote(){
   let id=Date.now();
   let payload = { text, owner:currentUser, privacy };
 
-  // Pack visual string into database entry if verified
   if(currentAttachedFileBase64) {
     payload.attachment = currentAttachedFileBase64;
   }
@@ -756,13 +858,14 @@ async function addNote(){
 
 async function deleteNote(id, event){
   if(event) event.stopPropagation(); 
-  if(!confirm("Are you sure you want to delete this post?")) return;
-
-  await fetch(DB_URL+`/notes/${id}.json`, { method: "DELETE" });
-  if (currentActiveNoteId === id) {
-    closeNoteModal();
-  }
-  loadFeed();
+  
+  showCustomConfirm("Are you sure you want to permanently delete this post?", async () => {
+    await fetch(DB_URL+`/notes/${id}.json`, { method: "DELETE" });
+    if (currentActiveNoteId === id) {
+      closeNoteModal();
+    }
+    loadFeed();
+  }, "Delete Post");
 }
 
 async function like(id, event){
@@ -798,7 +901,7 @@ function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
   
   let mediaArea = document.getElementById("modalAttachmentArea");
   if(noteObj.attachment) {
-    mediaArea.innerHTML = `<img src="${noteObj.attachment}" class="attached-media" alt="post attachment file preview">`;
+    mediaArea.innerHTML = `<img src="${noteObj.attachment}" class="attached-media" alt="post attachment preview">`;
   } else {
     mediaArea.innerHTML = "";
   }
@@ -1059,13 +1162,14 @@ async function sendMessage(){
 }
 
 async function deleteMessage(msgId) {
-  if(!confirm("Delete this message?")) return;
-  let cid=chatId(currentUser,currentChatUser);
-  await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
-    method: "DELETE"
-  });
-  let element = document.getElementById(`msg-${msgId}`);
-  if(element) element.remove();
+  showCustomConfirm("Do you really want to delete this message?", async () => {
+    let cid=chatId(currentUser,currentChatUser);
+    await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
+      method: "DELETE"
+    });
+    let element = document.getElementById(`msg-${msgId}`);
+    if(element) element.remove();
+  }, "Delete Message");
 }
 
 async function loadMessages(){
@@ -1107,10 +1211,9 @@ async function loadMessages(){
       let div=document.createElement("div");
       div.className="msg";
 
-      // Structural translation validation for processing images/gifs
       if(m.text.startsWith("[GIF] ")) {
         let cleanUrl = m.text.replace("[GIF] ", "");
-        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation loop</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
+        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
       } else {
         div.textContent = m.text;
       }
