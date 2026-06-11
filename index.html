@@ -243,6 +243,10 @@ footer {
 @media(min-width: 501px) {
   .modal-content { border-radius: 16px; max-height: 75vh; }
 }
+@media(max-width: 380px) {
+  .create-note-form-actions { grid-template-columns: 1fr; }
+  .note-actions { flex-wrap: wrap; }
+}
 .modal-body { overflow-y: auto; flex: 1; margin-bottom: 12px; padding-right: 4px; }
 .modal-close-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .modal-close-header h4 { margin: 0; }
@@ -373,24 +377,70 @@ footer {
   color: var(--text-secondary); font-style: italic; padding: 16px 0; text-align: center;
 }
 
-/* COLLAPSIBLE CREATE NOTE */
-.create-note-toggle-btn {
-  width: 100%;
+/* COMPACT FEED CONTROLS */
+.feed-quick-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
-.create-note-form {
+.feed-quick-actions.card,
+.create-note-card.compact-card,
+.filter-card.compact-card {
+  padding: 10px;
+}
+.create-note-toggle-btn,
+.filter-toggle-btn,
+.small-action-btn {
+  width: auto;
+  padding: 7px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+.create-note-form,
+.filter-form {
   margin-top: 12px;
 }
-.create-note-form.hidden {
+.create-note-form.hidden,
+.filter-form.hidden {
   display: none;
 }
 .create-note-form-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
+}
+.copy-feedback {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 6px;
+  min-height: 16px;
+}
+.modal-post-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin: 8px 0 12px 0;
+}
+.copy-btn {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+.copy-btn:hover {
+  opacity: 0.9;
+  background: var(--border-color);
 }
 
 .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .filter-grid input { margin-top: 0; margin-bottom: 0; }
+.filter-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
 </style>
 </head>
 
@@ -427,8 +477,12 @@ footer {
     </div>
 
     <div id="view-feed" class="view-panel active">
-      <div class="card create-note-card">
-        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make a Post Note</button>
+      <div class="feed-quick-actions">
+        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make Post</button>
+        <button class="filter-toggle-btn secondary" onclick="toggleFilterForm()">🔎 Filter</button>
+      </div>
+
+      <div class="card create-note-card compact-card">
         <div id="feedCreateNoteForm" class="create-note-form hidden">
           <h4>Create a Note</h4>
           <input id="noteTitleInput" placeholder="Title">
@@ -448,19 +502,27 @@ footer {
             <label><input type="radio" name="feedPrivacy" value="private"> Private</label>
           </div>
           <div class="create-note-form-actions">
-            <button class="secondary" onclick="toggleCreateNoteForm('feed', false)">Cancel</button>
-            <button onclick="addNote('feed')">Post Content</button>
+            <button class="secondary small-action-btn" onclick="toggleCreateNoteForm('feed', false)">Cancel</button>
+            <!-- <button class="copy-btn small-action-btn" onclick="copyDraftNote('feed')">📋 Copy</button> -->
+            <button class="small-action-btn" onclick="addNote('feed')">Post</button>
           </div>
+          <div id="feedCopyFeedback" class="copy-feedback"></div>
         </div>
       </div>
 
-      <div class="card">
-        <h4>Filter Stream</h4>
-        <div class="filter-grid">
-          <input id="filterName" placeholder="Filter title" oninput="scheduleFeedFilter()">
-          <input id="filterDate" type="date" onchange="loadFeed()">
+      <div class="card filter-card compact-card">
+        <div id="filterStreamForm" class="filter-form hidden">
+          <h4>Filter Stream</h4>
+          <div class="filter-grid">
+            <input id="filterName" placeholder="Filter title" oninput="scheduleFeedFilter()">
+            <input id="filterDate" type="date" onchange="loadFeed()">
+          </div>
+          <div class="filter-form-actions">
+            <button class="secondary small-action-btn" onclick="toggleFilterForm(false)">Cancel</button>
+            <button class="secondary small-action-btn" onclick="clearFeedFilters()">Clear</button>
+            <button class="small-action-btn" onclick="loadFeed(); toggleFilterForm(false);">Apply</button>
+          </div>
         </div>
-        <button style="width: 100%; margin-top: 10px;" onclick="loadFeed()">Apply Filters</button>
       </div>
 
       <div id="feed"></div>
@@ -511,7 +573,7 @@ footer {
 
     <div id="view-profile" class="view-panel">
       <div class="card create-note-card">
-        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make a Post Note</button>
+        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make Post</button>
         <div id="profileCreateNoteForm" class="create-note-form hidden">
           <h4>Create a Note</h4>
           <input id="profileNoteTitleInput" placeholder="Title">
@@ -531,9 +593,11 @@ footer {
             <label><input type="radio" name="profilePrivacy" value="private"> Private</label>
           </div>
           <div class="create-note-form-actions">
-            <button class="secondary" onclick="toggleCreateNoteForm('profile', false)">Cancel</button>
-            <button onclick="addNote('profile')">Post Content</button>
+            <button class="secondary small-action-btn" onclick="toggleCreateNoteForm('profile', false)">Cancel</button>
+            <button class="copy-btn small-action-btn" onclick="copyDraftNote('profile')">📋 Copy</button>
+            <button class="small-action-btn" onclick="addNote('profile')">Post</button>
           </div>
+          <div id="profileCopyFeedback" class="copy-feedback"></div>
         </div>
       </div>
       
@@ -588,7 +652,10 @@ footer {
           <div id="modalAttachmentArea"></div>
           <h4 id="modalPostTitle" style="margin:0 0 8px 0; word-break:break-word;"></h4>
           <p id="modalPostText" style="font-size:16px; line-height:1.4; margin-top:0; white-space:pre-wrap;"></p>
-          <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;"></div>
+          <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;"></div>
+          <div class="modal-post-actions">
+            <button class="copy-btn" onclick="copyActiveModalNote(event)">📋 Copy Post</button>
+          </div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
           <h5>Notes</h5>
           <div id="modalCommentsContainer"></div>
@@ -676,6 +743,97 @@ function setupAutoResizeTextareas() {
     const el = document.getElementById(id);
     if (el) autoResizeTextarea(el);
   });
+}
+
+function buildNoteCopyText(note) {
+  const title = (note && note.title ? String(note.title).trim() : "");
+  const text = (note && note.text ? String(note.text).trim() : "");
+  const parts = [];
+
+  if (title) parts.push(title);
+  if (text) parts.push(text);
+
+  return parts.join("\n\n");
+}
+
+async function copyTextToClipboard(text, successMessage = "Copied to clipboard.") {
+  const value = String(text || "").trim();
+
+  if (!value) {
+    showCustomAlert("There is no text to copy yet.", "Nothing to Copy");
+    return false;
+  }
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const tempTextArea = document.createElement("textarea");
+      tempTextArea.value = value;
+      tempTextArea.setAttribute("readonly", "");
+      tempTextArea.style.position = "fixed";
+      tempTextArea.style.left = "-9999px";
+      tempTextArea.style.top = "-9999px";
+      document.body.appendChild(tempTextArea);
+      tempTextArea.focus();
+      tempTextArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempTextArea);
+    }
+
+    showCustomAlert(successMessage, "Copied");
+    return true;
+  } catch (error) {
+    showCustomAlert("Copy failed. Please select the text and copy it manually.", "Copy Failed");
+    return false;
+  }
+}
+
+function showCopyFeedback(source, message) {
+  const feedback = document.getElementById(source === "profile" ? "profileCopyFeedback" : "feedCopyFeedback");
+  if (!feedback) return;
+
+  feedback.innerText = message;
+  setTimeout(() => {
+    if (feedback.innerText === message) feedback.innerText = "";
+  }, 1800);
+}
+
+function copyDraftNote(source = "feed") {
+  const fields = getNoteFormFields(source);
+  const title = fields.titleInput ? fields.titleInput.value.trim() : "";
+  const text = fields.textInput ? fields.textInput.value.trim() : "";
+  const copyValue = buildNoteCopyText({ title, text });
+
+  if (!copyValue) {
+    showCopyFeedback(source, "Nothing to copy yet.");
+    showCustomAlert("Write a title or note first before copying.", "Nothing to Copy");
+    return;
+  }
+
+  copyTextToClipboard(copyValue, "Your draft note has been copied.").then((copied) => {
+    if (copied) showCopyFeedback(source, "Draft copied.");
+  });
+}
+
+async function copyNotePost(id, event) {
+  if (event) event.stopPropagation();
+
+  let r = await fetch(DB_URL+`/notes/${id}.json`);
+  let note = await r.json();
+
+  if (!note) {
+    showCustomAlert("This note no longer exists.", "Copy Failed");
+    return;
+  }
+
+  await copyTextToClipboard(buildNoteCopyText(note), "The note post has been copied.");
+}
+
+async function copyActiveModalNote(event) {
+  if (event) event.stopPropagation();
+  if (!currentActiveNoteId) return;
+  await copyNotePost(currentActiveNoteId, event);
 }
 
 function toggleCreateNoteForm(source = "feed", forceOpen = null) {
@@ -812,6 +970,23 @@ function switchView(viewId, btnToken) {
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
   if(viewId === 'profile') loadProfilePosts();
+}
+
+function toggleFilterForm(forceShow = null) {
+  const form = document.getElementById("filterStreamForm");
+  if (!form) return;
+
+  const shouldShow = forceShow === null ? form.classList.contains("hidden") : forceShow;
+  form.classList.toggle("hidden", !shouldShow);
+}
+
+function clearFeedFilters() {
+  const nameInput = document.getElementById("filterName");
+  const dateInput = document.getElementById("filterDate");
+  if (nameInput) nameInput.value = "";
+  if (dateInput) dateInput.value = "";
+  loadFeed();
+  toggleFilterForm(false);
 }
 
 // FILE PROCESSING AND ENFORCEMENT RULES
@@ -1286,6 +1461,7 @@ async function loadFeed(){
         <span>📝 ${commentsCount} Notes</span>
       </div>
       <div class="note-actions">
+        <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
@@ -1375,6 +1551,7 @@ async function loadProfilePosts(){
         <span>📝 ${commentsCount} Notes</span>
       </div>
       <div class="note-actions">
+        <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
