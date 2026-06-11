@@ -251,6 +251,114 @@ footer {
 .tab-item:active { transform: scale(0.92); }
 .tab-icon { font-size: 20px; line-height: 1; }
 
+
+/* NOTIFICATION BAR */
+.notification-shell {
+  position: sticky;
+  top: 62px;
+  z-index: 90;
+  margin-bottom: 12px;
+}
+.notification-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.10);
+  overflow: hidden;
+  animation: softPop 0.24s ease;
+}
+.notification-summary {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #ffffff;
+  border-radius: 0;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.notification-summary:hover { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); }
+.notification-summary-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.notification-count-badge,
+.tab-badge {
+  background: var(--danger);
+  color: #ffffff;
+  border-radius: 999px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.20);
+}
+.notification-dropdown {
+  display: none;
+  padding: 10px;
+  border-top: 1px solid var(--border-color);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.notification-bar.open .notification-dropdown {
+  display: grid;
+  gap: 8px;
+}
+.notification-item {
+  width: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+}
+.notification-item:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.notification-title {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+.notification-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.notification-actions-row {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+.notification-actions-row button {
+  flex: 1;
+}
+.tab-badge {
+  position: absolute;
+  top: 2px;
+  right: 14px;
+  transform: scale(0);
+  transition: transform 0.18s ease;
+}
+.tab-badge.show { transform: scale(1); }
+@media (max-width: 500px) {
+  .notification-shell { top: 58px; }
+  .notification-dropdown { max-height: 220px; }
+}
+
 /* ROW FORMATS & PROFILE */
 .row { display: flex; align-items: center; gap: 10px; }
 .profile-bar { display: flex; align-items: center; justify-content: space-between; }
@@ -648,6 +756,41 @@ footer {
   justify-content: space-between;
   gap: 8px;
 }
+.friend-suggestions {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.friend-suggestion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  animation: fadeInSlide 0.22s ease both;
+}
+.friend-suggestion-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.friend-suggestion-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-top: 2px;
+}
+.suggestion-empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 10px 0;
+}
 .hidden { display: none !important; }
 
 
@@ -816,6 +959,138 @@ footer {
   }
 }
 
+
+
+/* PRO FEATURE PACK: polished social-notes experience */
+.app-hero {
+  display: grid;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(24,119,242,0.16), rgba(24,119,242,0.04));
+  border: 1px solid var(--border-color);
+}
+.hero-title-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.hero-kicker { color: var(--text-secondary); font-size: 13px; margin-top: 3px; line-height: 1.4; }
+.stats-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+.stat-pill { background: var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:10px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.stat-number { font-weight:800; font-size:18px; color:var(--accent); }
+.stat-label { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+.smart-toolbar { display:grid; gap:8px; }
+.search-input-wrap { position:relative; }
+.search-input-wrap input { padding-left: 36px; margin:0; }
+.search-input-wrap::before { content:'🔎'; position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:0.7; z-index:1; }
+.filter-chip-row, .mode-chip-row, .note-tag-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.mode-chip, .filter-chip, .tag-chip { background:var(--bg-primary); color:var(--text-primary); border:1px solid var(--border-color); border-radius:999px; padding:7px 11px; font-size:12px; }
+.mode-chip.active, .filter-chip.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.note-extra-grid { display:grid; grid-template-columns: 1.1fr 0.9fr 0.9fr; gap:8px; }
+.note-extra-grid input, .note-extra-grid select { margin:0; }
+.note-accent-public { border-left: 4px solid var(--accent); }
+.note-accent-private { border-left: 4px solid #9b59ff; }
+.note-badges { display:flex; flex-wrap:wrap; gap:6px; margin: 0 0 9px 0; }
+.note-badge { font-size:11px; padding:4px 7px; border-radius:999px; background:var(--bg-primary); color:var(--text-secondary); border:1px solid var(--border-color); }
+.note-badge.important { color:#b35b00; background:rgba(255,159,10,0.13); border-color:rgba(255,159,10,0.25); }
+.note-badge.pinned { color:var(--accent); background:rgba(24,119,242,0.10); border-color:rgba(24,119,242,0.20); }
+.quick-note-mini { display:flex; gap:8px; align-items:flex-end; }
+.quick-note-mini textarea { margin:0; min-height:42px; }
+.empty-state { text-align:center; padding:28px 16px; color:var(--text-secondary); border:1px dashed var(--border-color); border-radius:14px; background:var(--bg-card); }
+.empty-state-icon { font-size:32px; margin-bottom:8px; }
+.profile-bio-box { background:var(--bg-primary); border:1px solid var(--border-color); border-radius:12px; padding:12px; margin-top:10px; }
+.profile-bio-text { color:var(--text-secondary); line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.profile-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.profile-metric { background:var(--bg-primary); border-radius:10px; padding:10px; text-align:center; }
+.toast-stack { position:fixed; top:76px; right:14px; z-index:10000; display:grid; gap:8px; width:min(340px, calc(100vw - 28px)); pointer-events:none; }
+.toast-item { background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); border-left:4px solid var(--accent); border-radius:12px; padding:12px 14px; box-shadow:0 10px 25px rgba(0,0,0,0.16); animation:toastIn 0.25s ease both; pointer-events:auto; }
+.toast-item.danger { border-left-color:var(--danger); }
+@keyframes toastIn { from { opacity:0; transform:translateY(-8px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes cardEnter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.note-item { animation: cardEnter 0.28s ease both; }
+.chat-preview-meta { font-size:12px; color:var(--text-secondary); margin-top:2px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.unread-pill { background:var(--danger); color:#fff; border-radius:999px; min-width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; }
+@media(max-width: 520px){
+  .stats-grid, .profile-metrics { grid-template-columns: repeat(3, 1fr); }
+  .note-extra-grid { grid-template-columns:1fr; }
+  .quick-note-mini { align-items:stretch; flex-direction:column; }
+  .toast-stack { top:64px; }
+}
+
+
+
+/* Floating modal forms for Make Post and Advanced Filter */
+.form-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.form-modal-overlay.show {
+  display: flex;
+  animation: modalFadeIn 0.18s ease both;
+}
+.form-modal-sheet {
+  width: min(520px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 22px 22px 16px 16px;
+  padding: 18px;
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.28);
+  animation: modalSheetUp 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.form-modal-sheet .create-note-form,
+.form-modal-sheet .filter-form {
+  display: block;
+  margin: 0;
+}
+.form-modal-sheet h4 {
+  font-size: 1.15rem;
+}
+body.form-modal-open {
+  overflow: hidden;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalSheetUp {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (min-width: 700px) {
+  .form-modal-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+  .form-modal-sheet {
+    border-radius: 22px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  }
+}
+
+/* Keep feed clean when Make Post and Advanced Filter are opened as modals */
+.modal-form-host {
+  display: none !important;
+}
+
+/* Prevent active Public/Private buttons from visually blinking during refresh */
+.profile-tabs button,
+.profile-tabs button.active {
+  transition: none !important;
+  animation: none !important;
+}
+
+.profile-posts-loading {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 18px 0;
+}
+
 </style>
 </head>
 
@@ -842,18 +1117,49 @@ footer {
   </div>
 
   <div id="app" style="display:none;">
+
+    <div class="notification-shell hidden" id="notificationShell">
+      <div class="notification-bar" id="notificationBar">
+        <button class="notification-summary" onclick="toggleNotificationPanel()">
+          <span class="notification-summary-text"><span>🔔</span><span id="notificationSummaryText">No new notifications</span></span>
+          <span class="notification-count-badge" id="notificationCountBadge">0</span>
+        </button>
+        <div class="notification-dropdown" id="notificationDropdown">
+          <div id="notificationList"></div>
+          <div class="notification-actions-row">
+            <button class="secondary small-action-btn" onclick="toggleNotificationPanel(false)">Close</button>
+            <button class="small-action-btn" onclick="markAllNotificationsRead()">Mark all read</button>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <div id="view-feed" class="view-panel active">
-      <div class="feed-quick-actions">
-        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make Post</button>
-        <button class="filter-toggle-btn secondary" onclick="toggleFilterForm()">🔎 Filter</button>
+      <div class="card smart-toolbar compact-card">
+        <div class="feed-quick-actions" style="margin-bottom:0;">
+          <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make Post</button>
+          <button class="filter-toggle-btn secondary" onclick="toggleFilterForm()">⚙️ Advanced Filter</button>
+        </div>
+        <div class="search-input-wrap">
+          <input id="globalSearchInput" placeholder="Search notes, tags, users..." oninput="scheduleFeedFilter()">
+        </div>
+        <div class="mode-chip-row">
+          <button class="mode-chip active" id="modeAllBtn" onclick="setFeedMode('all')">All</button>
+          <button class="mode-chip" id="modeSavedBtn" onclick="setFeedMode('saved')">🔖 Saved</button>
+          <button class="mode-chip" id="modeMineBtn" onclick="setFeedMode('mine')">👤 Mine</button>
+        </div>
       </div>
 
-      <div class="card create-note-card compact-card">
+      <div class="card create-note-card compact-card modal-form-host">
         <div id="feedCreateNoteForm" class="create-note-form hidden">
           <h4>Create a Note</h4>
           <input id="noteTitleInput" placeholder="Title">
           <textarea id="noteInput" placeholder="What's on your mind?" rows="3" oninput="autoResizeTextarea(this)"></textarea>
+          <div class="note-extra-grid">
+            <input id="noteTagsInput" placeholder="Tags: ideas, school">
+            <select id="notePriorityInput"><option value="normal">Normal</option><option value="important">Important</option><option value="idea">Idea</option><option value="task">Task</option></select>
+            <select id="noteColorInput"><option value="default">Default</option><option value="blue">Blue</option><option value="purple">Purple</option><option value="green">Green</option><option value="orange">Orange</option></select>
+          </div>
           
           <div class="file-input-wrapper">
             <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
@@ -877,12 +1183,14 @@ footer {
         </div>
       </div>
 
-      <div class="card filter-card compact-card">
+      <div class="card filter-card compact-card modal-form-host">
         <div id="filterStreamForm" class="filter-form hidden">
           <h4>Filter Stream</h4>
           <div class="filter-grid">
             <input id="filterName" placeholder="Filter title" oninput="scheduleFeedFilter()">
             <input id="filterDate" type="date" onchange="loadFeed()">
+            <input id="filterTag" placeholder="Filter tag" oninput="scheduleFeedFilter()">
+            <select id="filterPriority" onchange="loadFeed()"><option value="">Any priority</option><option value="important">Important</option><option value="idea">Idea</option><option value="task">Task</option><option value="normal">Normal</option></select>
           </div>
           <div class="filter-form-actions">
             <button class="secondary small-action-btn" onclick="toggleFilterForm(false)">Cancel</button>
@@ -899,9 +1207,10 @@ footer {
       <div class="card">
         <h4>Add Connections</h4>
         <div style="display:flex; gap: 8px;">
-          <input id="friendInput" placeholder="Enter username..." style="margin:0;">
+          <input id="friendInput" placeholder="Search username..." style="margin:0;" autocomplete="off" oninput="showUserSuggestions()" onfocus="showUserSuggestions()">
           <button onclick="addFriend()">Connect</button>
         </div>
+        <div id="friendSuggestions" class="friend-suggestions hidden"></div>
       </div>
 
       <div class="card" id="notif" style="display:none;">🔔 Notifications (0)</div>
@@ -947,6 +1256,21 @@ footer {
         <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
       </div>
 
+      <div class="card app-hero">
+        <div class="hero-title-row">
+          <div>
+            <h4 style="margin-bottom:2px;">Your Social Notebook</h4>
+            <div class="hero-kicker">Write notes, share ideas, save favorites, and keep private thoughts organized.</div>
+          </div>
+          <button class="small-action-btn" onclick="manualRefresh()">↻ Sync</button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-pill"><div class="stat-number" id="dashPostsCount">0</div><div class="stat-label">My Notes</div></div>
+          <div class="stat-pill"><div class="stat-number" id="dashFriendsCount">0</div><div class="stat-label">Friends</div></div>
+          <div class="stat-pill"><div class="stat-number" id="dashSavedCount">0</div><div class="stat-label">Saved</div></div>
+        </div>
+      </div>
+
       <div class="card create-note-card">
         <div class="profile-create-actions">
           <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make Post</button>
@@ -956,6 +1280,11 @@ footer {
           <h4>Create a Note</h4>
           <input id="profileNoteTitleInput" placeholder="Title">
           <textarea id="profileNoteInput" placeholder="What's on your mind?" rows="3" oninput="autoResizeTextarea(this)"></textarea>
+          <div class="note-extra-grid">
+            <input id="profileNoteTagsInput" placeholder="Tags: ideas, school">
+            <select id="profileNotePriorityInput"><option value="normal">Normal</option><option value="important">Important</option><option value="idea">Idea</option><option value="task">Task</option></select>
+            <select id="profileNoteColorInput"><option value="default">Default</option><option value="blue">Blue</option><option value="purple">Purple</option><option value="green">Green</option><option value="orange">Orange</option></select>
+          </div>
           
           <div class="file-input-wrapper">
             <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
@@ -1015,6 +1344,21 @@ footer {
             </div>
           </div>
           <span id="profilePostCount" style="font-size:12px; color:var(--text-secondary);">0 posts</span>
+        </div>
+        <div class="profile-bio-box">
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px;">
+            <b>Bio</b><button class="secondary small-action-btn" onclick="toggleBioEditor()">Edit Bio</button>
+          </div>
+          <div id="profileBioText" class="profile-bio-text">No bio yet.</div>
+          <div id="bioEditor" class="hidden" style="margin-top:10px;">
+            <textarea id="profileBioInput" placeholder="Write something about you..." rows="3"></textarea>
+            <div style="display:flex; gap:8px; justify-content:flex-end;"><button class="secondary small-action-btn" onclick="toggleBioEditor(false)">Cancel</button><button class="small-action-btn" onclick="saveProfileBio()">Save Bio</button></div>
+          </div>
+          <div class="profile-metrics">
+            <div class="profile-metric"><b id="profileLikesMetric">0</b><br><span style="font-size:11px;color:var(--text-secondary);">Likes</span></div>
+            <div class="profile-metric"><b id="profileCommentsMetric">0</b><br><span style="font-size:11px;color:var(--text-secondary);">Comments</span></div>
+            <div class="profile-metric"><b id="profileSavedMetric">0</b><br><span style="font-size:11px;color:var(--text-secondary);">Saved</span></div>
+          </div>
         </div>
         <div class="profile-tabs">
           <button id="profilePublicTab" onclick="switchProfilePrivacy('public')">Public Notes</button>
@@ -1081,6 +1425,11 @@ footer {
         <div class="edit-note-form-grid">
           <input id="editNoteTitleInput" placeholder="Title">
           <textarea id="editNoteTextInput" placeholder="What's on your mind?" rows="5" oninput="autoResizeTextarea(this)"></textarea>
+          <div class="note-extra-grid">
+            <input id="editNoteTagsInput" placeholder="Tags: ideas, school">
+            <select id="editNotePriorityInput"><option value="normal">Normal</option><option value="important">Important</option><option value="idea">Idea</option><option value="task">Task</option></select>
+            <select id="editNoteColorInput"><option value="default">Default</option><option value="blue">Blue</option><option value="purple">Purple</option><option value="green">Green</option><option value="orange">Orange</option></select>
+          </div>
           <div class="privacy-selectors">
             <label><input type="radio" name="editPrivacy" value="public"> Public</label>
             <label><input type="radio" name="editPrivacy" value="private"> Private</label>
@@ -1132,17 +1481,17 @@ footer {
     </footer>
 
     <nav class="nav-tabs">
-      <button class="tab-item active" onclick="switchView('feed', this)">
+      <button class="tab-item active" data-view="feed" onclick="switchView('feed', this)">
         <span class="tab-icon">📰</span><span>Feed</span>
       </button>
-      <button class="tab-item" onclick="switchView('friends', this)">
+      <button class="tab-item" data-view="friends" onclick="switchView('friends', this)">
         <span class="tab-icon">👥</span><span>Friends</span>
       </button>
-      <button class="tab-item" onclick="switchView('messages', this)">
-        <span class="tab-icon">💬</span><span>Chats</span>
+      <button class="tab-item" data-view="messages" onclick="switchView('messages', this)">
+        <span class="tab-icon">💬</span><span>Chats</span><span class="tab-badge" id="chatTabBadge">0</span>
       </button>
-      <button class="tab-item" onclick="switchView('profile', this)">
-        <span class="tab-icon">👤</span><span>Profile</span>
+      <button class="tab-item" data-view="profile" onclick="switchView('profile', this)">
+        <span class="tab-icon">👤</span><span>Profile</span><span class="tab-badge" id="profileTabBadge">0</span>
       </button>
     </nav>
 
@@ -1157,6 +1506,8 @@ footer {
   </div>
 </div>
 
+<div class="toast-stack" id="toastStack"></div>
+
 <script>
 const DB_URL = "https://johnshedb-233f8-default-rtdb.firebaseio.com";
 
@@ -1167,12 +1518,19 @@ let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
 let currentAttachedFileBase64 = { feed: "", profile: "" };
 let feedLoadToken = 0;
+let profileLoadToken = 0;
+let lastProfilePostsSignature = "";
 let feedFilterTimer = null;
 let profileActivePrivacy = "";
 let currentEditingNoteId = null;
 let currentSharingNoteId = null;
 let currentActiveFolderId = null;
 let currentFolderTargetNoteId = null;
+let feedMode = "all";
+let toastCounter = 0;
+let notificationItems = [];
+let lastNotificationSignature = "";
+let notificationScanInProgress = false;
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -1193,6 +1551,55 @@ function escapeHTML(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+
+function normalizeTags(value) {
+  return String(value || "")
+    .split(",")
+    .map(tag => tag.trim().replace(/^#/, "").toLowerCase())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function renderNoteBadges(note = {}) {
+  const badges = [];
+  if (note.priority && note.priority !== "normal") badges.push(`<span class="note-badge ${note.priority === "important" ? "important" : ""}">${escapeHTML(note.priority)}</span>`);
+  if (note.privacy === "private") badges.push(`<span class="note-badge">🔒 Private</span>`);
+  (note.tags || []).forEach(tag => badges.push(`<span class="note-badge">#${escapeHTML(tag)}</span>`));
+  return badges.length ? `<div class="note-badges">${badges.join("")}</div>` : "";
+}
+
+function getNoteAccentClass(note = {}) {
+  return note.privacy === "private" ? "note-accent-private" : "note-accent-public";
+}
+
+function showToast(message, type = "info") {
+  const stack = document.getElementById("toastStack");
+  if (!stack) return;
+  const toast = document.createElement("div");
+  toast.className = `toast-item ${type === "danger" ? "danger" : ""}`;
+  toast.textContent = message;
+  const id = `toast-${++toastCounter}`;
+  toast.id = id;
+  stack.appendChild(toast);
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-8px)";
+      setTimeout(() => el.remove(), 250);
+    }
+  }, 2600);
+}
+
+function setFeedMode(mode) {
+  feedMode = mode;
+  ["all", "saved", "mine"].forEach(key => {
+    const btn = document.getElementById(`mode${key.charAt(0).toUpperCase()+key.slice(1)}Btn`);
+    if (btn) btn.classList.toggle("active", key === mode);
+  });
+  loadFeed();
 }
 
 function autoResizeTextarea(el) {
@@ -1324,6 +1731,9 @@ async function openEditNoteModal(id, event) {
   currentEditingNoteId = id;
   document.getElementById("editNoteTitleInput").value = note.title || "";
   document.getElementById("editNoteTextInput").value = note.text || "";
+  document.getElementById("editNoteTagsInput").value = (note.tags || []).join(", ");
+  document.getElementById("editNotePriorityInput").value = note.priority || "normal";
+  document.getElementById("editNoteColorInput").value = note.color || "default";
 
   const privacy = note.privacy || "public";
   document.querySelectorAll('input[name="editPrivacy"]').forEach(input => {
@@ -1347,6 +1757,9 @@ async function saveEditedNote() {
   const text = document.getElementById("editNoteTextInput").value.trim();
   const privacyInput = document.querySelector('input[name="editPrivacy"]:checked');
   const privacy = privacyInput ? privacyInput.value : "public";
+  const tags = normalizeTags(document.getElementById("editNoteTagsInput").value);
+  const priority = document.getElementById("editNotePriorityInput").value || "normal";
+  const color = document.getElementById("editNoteColorInput").value || "default";
 
   if (!title && !text) {
     showCustomAlert("The edited note cannot be empty.", "Missing Note Content");
@@ -1355,7 +1768,7 @@ async function saveEditedNote() {
 
   await fetch(DB_URL+`/notes/${currentEditingNoteId}.json`, {
     method: "PATCH",
-    body: JSON.stringify({ title, text, privacy })
+    body: JSON.stringify({ title, text, privacy, tags, priority, color, updatedAt: Date.now() })
   });
 
   const editedId = currentEditingNoteId;
@@ -1513,17 +1926,92 @@ async function removeCollaborator(username) {
   }, "Remove Collaborator");
 }
 
+let activeFloatingFormState = null;
+
+function ensureFloatingFormModal() {
+  let overlay = document.getElementById("floatingFormOverlay");
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = "floatingFormOverlay";
+  overlay.className = "form-modal-overlay";
+  overlay.onclick = (event) => {
+    if (event.target === overlay) closeFloatingFormModal();
+  };
+
+  const sheet = document.createElement("div");
+  sheet.id = "floatingFormSheet";
+  sheet.className = "form-modal-sheet";
+  sheet.onclick = (event) => event.stopPropagation();
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function openFloatingFormModal(formId, focusSelector = "input, textarea, select") {
+  const form = document.getElementById(formId);
+  if (!form) return;
+
+  closeFloatingFormModal(false);
+
+  const overlay = ensureFloatingFormModal();
+  const sheet = document.getElementById("floatingFormSheet");
+  const placeholder = document.createComment(`${formId}-placeholder`);
+  const originalParent = form.parentNode;
+  const originalNextSibling = form.nextSibling;
+
+  originalParent.insertBefore(placeholder, form);
+  sheet.replaceChildren(form);
+  form.classList.remove("hidden");
+  overlay.classList.add("show");
+  document.body.classList.add("form-modal-open");
+
+  activeFloatingFormState = { form, placeholder, originalParent, originalNextSibling };
+
+  setTimeout(() => {
+    const focusTarget = form.querySelector(focusSelector);
+    if (focusTarget) focusTarget.focus();
+  }, 40);
+}
+
+function closeFloatingFormModal(restoreHidden = true) {
+  const overlay = document.getElementById("floatingFormOverlay");
+  const sheet = document.getElementById("floatingFormSheet");
+
+  if (activeFloatingFormState) {
+    const { form, placeholder, originalParent, originalNextSibling } = activeFloatingFormState;
+    if (restoreHidden) form.classList.add("hidden");
+
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(form, placeholder);
+      placeholder.remove();
+    } else if (originalParent) {
+      originalParent.insertBefore(form, originalNextSibling || null);
+    }
+
+    activeFloatingFormState = null;
+  }
+
+  if (sheet) sheet.replaceChildren();
+  if (overlay) overlay.classList.remove("show");
+  document.body.classList.remove("form-modal-open");
+}
+
 function toggleCreateNoteForm(source = "feed", forceOpen = null) {
   const formId = source === "profile" ? "profileCreateNoteForm" : "feedCreateNoteForm";
   const form = document.getElementById(formId);
   if (!form) return;
 
-  const shouldOpen = forceOpen === null ? form.classList.contains("hidden") : forceOpen;
-  form.classList.toggle("hidden", !shouldOpen);
+  const isActiveFloatingForm = activeFloatingFormState && activeFloatingFormState.form && activeFloatingFormState.form.id === formId;
+  const shouldOpen = forceOpen === null ? !isActiveFloatingForm && form.classList.contains("hidden") : forceOpen;
 
   if (shouldOpen) {
-    const titleInput = document.getElementById(source === "profile" ? "profileNoteTitleInput" : "noteTitleInput");
-    if (titleInput) titleInput.focus();
+    openFloatingFormModal(formId, source === "profile" ? "#profileNoteTitleInput" : "#noteTitleInput");
+  } else if (isActiveFloatingForm) {
+    closeFloatingFormModal(true);
+  } else {
+    form.classList.add("hidden");
   }
 }
 
@@ -1535,7 +2023,10 @@ function getCreateNoteFields(source = "feed") {
       privacySelector: 'input[name="profilePrivacy"]:checked',
       fileInput: document.getElementById("profileNoteFileElement"),
       previewBox: document.getElementById("profileFilePreviewBox"),
-      previewImg: document.getElementById("profileFilePreviewImg")
+      previewImg: document.getElementById("profileFilePreviewImg"),
+      tagsInput: document.getElementById("profileNoteTagsInput"),
+      priorityInput: document.getElementById("profileNotePriorityInput"),
+      colorInput: document.getElementById("profileNoteColorInput")
     };
   }
 
@@ -1545,7 +2036,10 @@ function getCreateNoteFields(source = "feed") {
     privacySelector: 'input[name="feedPrivacy"]:checked',
     fileInput: document.getElementById("noteFileElement"),
     previewBox: document.getElementById("filePreviewBox"),
-    previewImg: document.getElementById("filePreviewImg")
+    previewImg: document.getElementById("filePreviewImg"),
+    tagsInput: document.getElementById("noteTagsInput"),
+    priorityInput: document.getElementById("notePriorityInput"),
+    colorInput: document.getElementById("noteColorInput")
   };
 }
 
@@ -1647,22 +2141,36 @@ function switchView(viewId, btnToken) {
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
-  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); }
+  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); loadProfileBio(); updateDashboardStats(); }
 }
 
 function toggleFilterForm(forceShow = null) {
   const form = document.getElementById("filterStreamForm");
   if (!form) return;
 
-  const shouldShow = forceShow === null ? form.classList.contains("hidden") : forceShow;
-  form.classList.toggle("hidden", !shouldShow);
+  const isActiveFloatingForm = activeFloatingFormState && activeFloatingFormState.form && activeFloatingFormState.form.id === "filterStreamForm";
+  const shouldShow = forceShow === null ? !isActiveFloatingForm && form.classList.contains("hidden") : forceShow;
+
+  if (shouldShow) {
+    openFloatingFormModal("filterStreamForm", "#filterName");
+  } else if (isActiveFloatingForm) {
+    closeFloatingFormModal(true);
+  } else {
+    form.classList.add("hidden");
+  }
 }
 
 function clearFeedFilters() {
   const nameInput = document.getElementById("filterName");
   const dateInput = document.getElementById("filterDate");
+  const tagInput = document.getElementById("filterTag");
+  const priorityInput = document.getElementById("filterPriority");
+  const globalInput = document.getElementById("globalSearchInput");
   if (nameInput) nameInput.value = "";
   if (dateInput) dateInput.value = "";
+  if (tagInput) tagInput.value = "";
+  if (priorityInput) priorityInput.value = "";
+  if (globalInput) globalInput.value = "";
   loadFeed();
   toggleFilterForm(false);
 }
@@ -1742,6 +2250,8 @@ async function login(){
 
     setOnline(true);
     loadAll();
+    loadProfileBio();
+    updateDashboardStats();
     buildGifDrawerGrid();
   });
 }
@@ -1780,6 +2290,77 @@ async function updateProfileName() {
 }
 
 // CONNECTIONS & REQUEST HANDLING
+function hideFriendSuggestions() {
+  const box = document.getElementById("friendSuggestions");
+  if (!box) return;
+  box.classList.add("hidden");
+  box.innerHTML = "";
+}
+
+function selectFriendSuggestion(username) {
+  const input = document.getElementById("friendInput");
+  if (input) input.value = username;
+  hideFriendSuggestions();
+}
+
+async function showUserSuggestions() {
+  const input = document.getElementById("friendInput");
+  const box = document.getElementById("friendSuggestions");
+  if (!input || !box || !currentUser) return;
+
+  const query = input.value.trim().toLowerCase();
+  if (!query) {
+    hideFriendSuggestions();
+    return;
+  }
+
+  const usersRes = await fetch(DB_URL + "/users.json");
+  const users = await usersRes.json() || {};
+  const friendsRes = await fetch(DB_URL + `/users/${currentUser}/friends.json`);
+  const friends = await friendsRes.json() || {};
+
+  const matches = Object.entries(users)
+    .filter(([username]) => username !== currentUser)
+    .filter(([username, data]) => {
+      const display = String(data.displayName || "").toLowerCase();
+      return username.toLowerCase().includes(query) || display.includes(query);
+    })
+    .slice(0, 6);
+
+  box.classList.remove("hidden");
+  box.innerHTML = "";
+
+  if (!matches.length) {
+    box.innerHTML = `<div class="suggestion-empty">No available users found.</div>`;
+    return;
+  }
+
+  matches.forEach(([username, data]) => {
+    const row = document.createElement("div");
+    row.className = "friend-suggestion-row";
+
+    const label = document.createElement("div");
+    label.className = "friend-suggestion-name";
+    label.textContent = `${data.avatar || "😀"} ${data.displayName || username}`;
+
+    const meta = document.createElement("span");
+    meta.className = "friend-suggestion-meta";
+    meta.textContent = friends[username] ? `@${username} • already your friend` : `@${username}`;
+    label.appendChild(meta);
+
+    const btn = document.createElement("button");
+    btn.className = friends[username] ? "secondary small-action-btn" : "small-action-btn";
+    btn.type = "button";
+    btn.textContent = friends[username] ? "Added" : "Choose";
+    btn.disabled = !!friends[username];
+    btn.onclick = () => selectFriendSuggestion(username);
+
+    row.appendChild(label);
+    row.appendChild(btn);
+    box.appendChild(row);
+  });
+}
+
 async function addFriend(){
   let f=friendInput.value.trim();
   if(!f) return;
@@ -1793,6 +2374,7 @@ async function addFriend(){
   
   showCustomAlert(`Connection request sent to @${f}!`, "Request Sent");
   friendInput.value = "";
+  hideFriendSuggestions();
 }
 
 async function loadRequests(){
@@ -1898,11 +2480,14 @@ async function addNote(source = "feed"){
   let text = fields.textInput.value.trim();
   let privacyInput = document.querySelector(fields.privacySelector);
   let privacy = privacyInput ? privacyInput.value : "public";
+  let tags = normalizeTags(fields.tagsInput ? fields.tagsInput.value : "");
+  let priority = fields.priorityInput ? fields.priorityInput.value : "normal";
+  let color = fields.colorInput ? fields.colorInput.value : "default";
 
   if(!title && !text && !currentAttachedFileBase64[source]) return;
 
   let id=Date.now();
-  let payload = { title, text, owner:currentUser, privacy };
+  let payload = { title, text, owner:currentUser, privacy, tags, priority, color, createdAt:id };
 
   if(currentAttachedFileBase64[source]) {
     payload.attachment = currentAttachedFileBase64[source];
@@ -1912,12 +2497,33 @@ async function addNote(source = "feed"){
 
   fields.titleInput.value = "";
   fields.textInput.value = "";
+  if (fields.tagsInput) fields.tagsInput.value = "";
+  if (fields.priorityInput) fields.priorityInput.value = "normal";
+  if (fields.colorInput) fields.colorInput.value = "default";
   autoResizeTextarea(fields.textInput);
   clearAttachedFile(null, source);
   toggleCreateNoteForm(source, false);
 
   loadFeed();
   loadProfilePosts();
+  loadProfileBio();
+  updateDashboardStats();
+}
+
+
+async function toggleBookmarkNote(id, event) {
+  if(event) event.stopPropagation();
+  const path = DB_URL+`/users/${currentUser}/savedNotes/${id}.json`;
+  const r = await fetch(path);
+  const saved = await r.json();
+  if (saved) {
+    await fetch(path, { method:"DELETE" });
+    showToast("Removed from saved.");
+  } else {
+    await fetch(path, { method:"PUT", body:"true" });
+    showToast("Saved to bookmarks.");
+  }
+  loadFeed(); updateDashboardStats(); loadProfilePosts();
 }
 
 async function deleteNote(id, event){
@@ -1953,6 +2559,7 @@ async function like(id, event){
 
   loadFeed();
   loadProfilePosts();
+  scanNotifications();
   if(currentActiveNoteId === id) {
     setTimeout(() => syncModalDetails(id), 100);
   }
@@ -2088,6 +2695,7 @@ async function addModalComment(id) {
   syncModalDetails(id);
   loadFeed();
   loadProfilePosts();
+  scanNotifications();
 }
 
 async function loadFeed(){
@@ -2100,16 +2708,25 @@ async function loadFeed(){
 
   let filterN = filterName.value.trim().toLowerCase();
   let filterD = filterDate.value;
+  let filterT = (document.getElementById("filterTag")?.value || "").trim().replace(/^#/, "").toLowerCase();
+  let filterP = document.getElementById("filterPriority")?.value || "";
+  let globalSearch = (document.getElementById("globalSearchInput")?.value || "").trim().toLowerCase();
+  let savedRes = await fetch(DB_URL+`/users/${currentUser}/savedNotes.json`);
+  let savedNotes = await savedRes.json() || {};
   let nextFeed = document.createDocumentFragment();
+  let renderedCount = 0;
+  let entries = Object.entries(notes||{}).sort((a,b)=>Number(b[0]) - Number(a[0]));
 
   if(loadToken !== feedLoadToken) return;
 
-  for(let [id,n] of Object.entries(notes||{}).reverse()){
+  for(let [id,n] of entries){
     let isOwner=n.owner===currentUser;
     let isFriend=friends[n.owner];
     let isSharedPrivate=n.privacy==="private" && n.sharedWith && n.sharedWith[currentUser];
 
     if(!(isOwner || (n.privacy==="public"&&isFriend) || isSharedPrivate)) continue;
+    if (feedMode === "saved" && !savedNotes[id]) continue;
+    if (feedMode === "mine" && !isOwner) continue;
 
     let userRes = await fetch(DB_URL+"/users/"+n.owner+".json");
     let user = await userRes.json() || {};
@@ -2117,21 +2734,28 @@ async function loadFeed(){
 
     let authorDisplayName = user.displayName || n.owner;
     let noteTitle = (n.title || "").toLowerCase();
+    let noteText = (n.text || "").toLowerCase();
+    let noteTags = (n.tags || []).map(t => String(t).toLowerCase());
+    let authorSearch = `${authorDisplayName} ${n.owner}`.toLowerCase();
 
     if(filterN && !noteTitle.includes(filterN)) continue;
+    if(globalSearch && !(`${noteTitle} ${noteText} ${noteTags.join(" ")} ${authorSearch}`.includes(globalSearch))) continue;
+    if(filterT && !noteTags.includes(filterT)) continue;
+    if(filterP && (n.priority || "normal") !== filterP) continue;
     if(filterD) {
       let postDate = new Date(Number(id)).toISOString().split('T')[0];
       if(postDate !== filterD) continue;
     }
 
     let div=document.createElement("div");
-    div.className="card note-item";
+    div.className=`card note-item ${getNoteAccentClass(n)}`;
     
     div.onclick = () => openNoteModal(id, n, user.avatar || "😀", authorDisplayName);
 
     let likesCount = n.likes ? Object.keys(n.likes).length : 0;
     let commentsCount = n.comments ? Object.keys(n.comments).length : 0;
     let hasUserLiked = n.likes && n.likes[currentUser];
+    let isSaved = !!savedNotes[id];
 
     let deleteButtonMarkup = isOwner 
       ? `<button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>` 
@@ -2144,6 +2768,7 @@ async function loadFeed(){
     let safeAvatar = escapeHTML(user.avatar || "😀");
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
+    let badgesMarkup = renderNoteBadges(n);
 
     div.innerHTML=`
       ${deleteButtonMarkup}
@@ -2153,6 +2778,7 @@ async function loadFeed(){
           <b>${safeAuthorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${safeOwner}</span>
         </div>
       </div>
+      ${badgesMarkup}
       ${titleMarkup}
       <div class="note-text">${safeText}</div>
       ${mediaMarkup}
@@ -2162,6 +2788,7 @@ async function loadFeed(){
       </div>
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
+        <button class="secondary" onclick="toggleBookmarkNote('${id}', event)">${isSaved ? "🔖 Saved" : "🔖 Save"}</button>
         ${isOwner ? `<button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>` : ""}
         ${isOwner && n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
@@ -2169,10 +2796,18 @@ async function loadFeed(){
     `;
 
     nextFeed.appendChild(div);
+    renderedCount++;
   }
 
   if(loadToken !== feedLoadToken) return;
+  if (renderedCount === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.innerHTML = `<div class="empty-state-icon">📝</div><b>No notes found</b><br><span>Try changing filters, creating a note, or adding friends.</span>`;
+    nextFeed.appendChild(empty);
+  }
   feed.replaceChildren(nextFeed);
+  updateDashboardStats();
 }
 
 
@@ -2181,24 +2816,29 @@ function switchProfilePrivacy(privacy) {
 
   const publicTab = document.getElementById("profilePublicTab");
   const privateTab = document.getElementById("profilePrivateTab");
+  const target = document.getElementById("profilePosts");
 
   if (publicTab) publicTab.classList.toggle("active", privacy === "public");
   if (privateTab) privateTab.classList.toggle("active", privacy === "private");
+  lastProfilePostsSignature = "";
 
-  loadProfilePosts();
+  loadProfilePosts(privacy);
 }
 
-async function loadProfilePosts(){
+async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
   if(!currentUser) return;
 
   const target = document.getElementById("profilePosts");
   if(!target) return;
 
+  const loadToken = ++profileLoadToken;
+  const activePrivacy = requestedPrivacy || profileActivePrivacy;
+
   if (document.getElementById("profileAvatar")) profileAvatar.innerText = avatar.innerText || "😀";
   if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = userDisplay.innerText || currentUser;
   if (document.getElementById("profileUsername")) profileUsername.innerText = `@${currentUser}`;
 
-  if (!profileActivePrivacy) {
+  if (!activePrivacy) {
     if (document.getElementById("profilePostCount")) {
       profilePostCount.innerText = "Choose Public or Private";
     }
@@ -2208,19 +2848,49 @@ async function loadProfilePosts(){
 
   let r = await fetch(DB_URL+"/notes.json");
   let notes = await r.json() || {};
-  let ownNotes = Object.entries(notes).filter(([id, n]) => n.owner === currentUser && n.privacy === profileActivePrivacy);
+  let savedRes = await fetch(DB_URL+`/users/${currentUser}/savedNotes.json`);
+  let savedNotes = await savedRes.json() || {};
+  if (loadToken !== profileLoadToken || activePrivacy !== profileActivePrivacy) return;
+
+  let ownNotes = Object.entries(notes).filter(([id, n]) => n.owner === currentUser && n.privacy === activePrivacy);
+  const profileSignature = JSON.stringify({
+    privacy: activePrivacy,
+    posts: ownNotes.map(([id, n]) => ({
+      id,
+      title: n.title || "",
+      text: n.text || "",
+      privacy: n.privacy || "public",
+      attachment: !!n.attachment,
+      tags: n.tags || "",
+      priority: n.priority || "normal",
+      color: n.color || "default",
+      likes: n.likes ? Object.keys(n.likes).sort() : [],
+      comments: n.comments ? Object.keys(n.comments).sort() : [],
+      saved: !!savedNotes[id]
+    }))
+  });
+
+  if (profileSignature === lastProfilePostsSignature && target.children.length > 0) {
+    if (document.getElementById("profilePostCount")) {
+      profilePostCount.innerText = `${ownNotes.length} ${activePrivacy} ${ownNotes.length === 1 ? "post" : "posts"}`;
+    }
+    return;
+  }
 
   if (document.getElementById("profilePostCount")) {
-    profilePostCount.innerText = `${ownNotes.length} ${profileActivePrivacy} ${ownNotes.length === 1 ? "post" : "posts"}`;
+    profilePostCount.innerText = `${ownNotes.length} ${activePrivacy} ${ownNotes.length === 1 ? "post" : "posts"}`;
   }
 
   if(ownNotes.length === 0){
-    target.innerHTML = `<div class="profile-empty">No ${profileActivePrivacy} notes yet.</div>`;
+    lastProfilePostsSignature = profileSignature;
+    target.innerHTML = `<div class="profile-empty">No ${activePrivacy} notes yet.</div>`;
     return;
   }
 
   let userRes = await fetch(DB_URL+"/users/"+currentUser+".json");
   let user = await userRes.json() || {};
+  if (loadToken !== profileLoadToken || activePrivacy !== profileActivePrivacy) return;
+
   let authorDisplayName = user.displayName || currentUser;
   let userAvatar = user.avatar || "😀";
 
@@ -2228,12 +2898,13 @@ async function loadProfilePosts(){
 
   for(let [id, n] of ownNotes.reverse()){
     let div = document.createElement("div");
-    div.className = "card note-item";
+    div.className = `card note-item ${getNoteAccentClass(n)}`;
     div.onclick = () => openNoteModal(id, n, userAvatar, authorDisplayName);
 
     let likesCount = n.likes ? Object.keys(n.likes).length : 0;
     let commentsCount = n.comments ? Object.keys(n.comments).length : 0;
     let hasUserLiked = n.likes && n.likes[currentUser];
+    let isSaved = !!savedNotes[id];
 
     let safeAuthorDisplayName = escapeHTML(authorDisplayName);
     let safeOwner = escapeHTML(n.owner);
@@ -2243,6 +2914,7 @@ async function loadProfilePosts(){
     let safePrivacy = escapeHTML(n.privacy || "public");
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="profile media post item">` : "";
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
+    let badgeMarkup = renderNoteBadges(n);
 
     div.innerHTML = `
       <button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>
@@ -2253,6 +2925,7 @@ async function loadProfilePosts(){
           <span style="font-size:12px; color:var(--text-secondary); text-transform:capitalize;">${safePrivacy} note</span>
         </div>
       </div>
+      ${badgeMarkup}
       ${titleMarkup}
       <div class="note-text">${safeText}</div>
       ${mediaMarkup}
@@ -2264,6 +2937,7 @@ async function loadProfilePosts(){
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         <button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>
         <button class="secondary" onclick="openAddToFolderModal('${id}', event)">📁 Folder</button>
+        <button class="secondary" onclick="toggleBookmarkNote('${id}', event)">${isSaved ? "🔖 Saved" : "🔖 Save"}</button>
         ${n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
@@ -2272,9 +2946,10 @@ async function loadProfilePosts(){
     nextProfilePosts.appendChild(div);
   }
 
+  if (loadToken !== profileLoadToken || activePrivacy !== profileActivePrivacy) return;
+  lastProfilePostsSignature = profileSignature;
   target.replaceChildren(nextProfilePosts);
 }
-
 
 function toggleFoldersPanel(forceOpen = null) {
   const panel = document.getElementById("foldersPanel");
@@ -2579,6 +3254,310 @@ function scheduleFeedFilter(){
   feedFilterTimer = setTimeout(loadFeed, 250);
 }
 
+
+// NOTIFICATION CENTER
+function getNotificationStorageKey() {
+  return `notes_social_seen_notifications_${currentUser}`;
+}
+
+function getNotificationSeenState() {
+  if (!currentUser) return { likes: {}, comments: {} };
+  try {
+    const raw = localStorage.getItem(getNotificationStorageKey());
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      likes: parsed.likes || {},
+      comments: parsed.comments || {}
+    };
+  } catch (error) {
+    return { likes: {}, comments: {} };
+  }
+}
+
+function saveNotificationSeenState(state) {
+  if (!currentUser) return;
+  localStorage.setItem(getNotificationStorageKey(), JSON.stringify({
+    likes: state.likes || {},
+    comments: state.comments || {}
+  }));
+}
+
+function toggleNotificationPanel(forceOpen = null) {
+  const bar = document.getElementById("notificationBar");
+  if (!bar) return;
+  const shouldOpen = forceOpen === null ? !bar.classList.contains("open") : forceOpen;
+  bar.classList.toggle("open", shouldOpen);
+}
+
+function setTabBadge(id, count) {
+  const badge = document.getElementById(id);
+  if (!badge) return;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.classList.toggle("show", count > 0);
+}
+
+function renderNotificationBar(items) {
+  const shell = document.getElementById("notificationShell");
+  const summary = document.getElementById("notificationSummaryText");
+  const countBadge = document.getElementById("notificationCountBadge");
+  const list = document.getElementById("notificationList");
+  if (!shell || !summary || !countBadge || !list) return;
+
+  const total = items.reduce((sum, item) => sum + (item.count || 1), 0);
+  const chatTotal = items.filter(item => item.type === "chat").reduce((sum, item) => sum + (item.count || 1), 0);
+  const noteTotal = total - chatTotal;
+
+  setTabBadge("chatTabBadge", chatTotal);
+  setTabBadge("profileTabBadge", noteTotal);
+
+  if (total === 0) {
+    shell.classList.add("hidden");
+    document.getElementById("notificationBar")?.classList.remove("open");
+    return;
+  }
+
+  shell.classList.remove("hidden");
+  summary.textContent = `${total} new ${total === 1 ? "notification" : "notifications"}`;
+  countBadge.textContent = total > 99 ? "99+" : String(total);
+
+  list.innerHTML = "";
+  items.slice(0, 12).forEach((item, index) => {
+    const btn = document.createElement("button");
+    btn.className = "notification-item";
+    btn.type = "button";
+    btn.onclick = () => openNotificationItem(index);
+
+    const content = document.createElement("div");
+    const title = document.createElement("div");
+    title.className = "notification-title";
+    title.textContent = item.title;
+    const text = document.createElement("div");
+    text.className = "notification-text";
+    text.textContent = item.text;
+    content.appendChild(title);
+    content.appendChild(text);
+
+    const arrow = document.createElement("span");
+    arrow.textContent = "›";
+    arrow.style.fontSize = "22px";
+    arrow.style.lineHeight = "1";
+
+    btn.appendChild(content);
+    btn.appendChild(arrow);
+    list.appendChild(btn);
+  });
+
+  if (items.length > 12) {
+    const more = document.createElement("div");
+    more.className = "notification-text";
+    more.style.padding = "4px 6px";
+    more.textContent = `+${items.length - 12} more notifications`;
+    list.appendChild(more);
+  }
+}
+
+async function scanNotifications() {
+  if (!currentUser || notificationScanInProgress) return;
+  notificationScanInProgress = true;
+
+  try {
+    const seen = getNotificationSeenState();
+    const items = [];
+
+    const friendsRes = await fetch(DB_URL+`/users/${currentUser}/friends.json`);
+    const friends = await friendsRes.json() || {};
+
+    for (const friend of Object.keys(friends)) {
+      const cid = chatId(currentUser, friend);
+      const msgRes = await fetch(DB_URL+`/chats/${cid}/messages.json`);
+      const messagesData = await msgRes.json() || {};
+      const unreadIds = Object.entries(messagesData)
+        .filter(([id, msg]) => msg && msg.sender !== currentUser && !msg.seen)
+        .map(([id]) => id);
+
+      if (unreadIds.length > 0) {
+        const userRes = await fetch(DB_URL+`/users/${friend}.json`);
+        const userData = await userRes.json() || {};
+        const displayName = userData.displayName || friend;
+        items.push({
+          type: "chat",
+          user: friend,
+          count: unreadIds.length,
+          messageIds: unreadIds,
+          title: `💬 ${displayName}`,
+          text: `${unreadIds.length} unread ${unreadIds.length === 1 ? "message" : "messages"}. Tap to open the chat.`
+        });
+      }
+    }
+
+    const notesRes = await fetch(DB_URL+"/notes.json");
+    const notes = await notesRes.json() || {};
+
+    for (const [noteId, note] of Object.entries(notes)) {
+      if (!note || note.owner !== currentUser) continue;
+      const noteLabel = note.title || (note.text ? String(note.text).slice(0, 34) : "your note");
+
+      for (const liker of Object.keys(note.likes || {})) {
+        if (liker === currentUser) continue;
+        const key = `${noteId}_${liker}`;
+        if (seen.likes[key]) continue;
+
+        items.push({
+          type: "like",
+          noteId,
+          key,
+          actor: liker,
+          count: 1,
+          title: "❤️ New like",
+          text: `@${liker} liked “${noteLabel}”.`
+        });
+      }
+
+      for (const [commentId, comment] of Object.entries(note.comments || {})) {
+        if (!comment || comment.user === currentUser) continue;
+        const key = `${noteId}_${commentId}`;
+        if (seen.comments[key]) continue;
+
+        items.push({
+          type: "comment",
+          noteId,
+          commentId,
+          key,
+          actor: comment.user,
+          count: 1,
+          title: "📝 New comment",
+          text: `@${comment.user} commented on “${noteLabel}”.`
+        });
+      }
+    }
+
+    items.sort((a, b) => {
+      const aTime = Number(a.commentId || a.noteId || 0);
+      const bTime = Number(b.commentId || b.noteId || 0);
+      if (a.type === "chat" && b.type !== "chat") return -1;
+      if (a.type !== "chat" && b.type === "chat") return 1;
+      return bTime - aTime;
+    });
+
+    const signature = JSON.stringify(items.map(item => `${item.type}:${item.user || item.key}:${item.count || 1}`));
+    notificationItems = items;
+    if (signature !== lastNotificationSignature) {
+      lastNotificationSignature = signature;
+      renderNotificationBar(items);
+    }
+  } catch (error) {
+    console.warn("Notification scan failed", error);
+  } finally {
+    notificationScanInProgress = false;
+  }
+}
+
+async function openNotificationItem(index) {
+  const item = notificationItems[index];
+  if (!item) return;
+
+  if (item.type === "chat") {
+    switchView("messages");
+    await loadChatFriends();
+    await openChat(item.user);
+    toggleNotificationPanel(false);
+    setTimeout(scanNotifications, 400);
+    return;
+  }
+
+  const seen = getNotificationSeenState();
+  if (item.type === "like") seen.likes[item.key] = true;
+  if (item.type === "comment") seen.comments[item.key] = true;
+  saveNotificationSeenState(seen);
+
+  const noteRes = await fetch(DB_URL+`/notes/${item.noteId}.json`);
+  const note = await noteRes.json();
+  if (!note) {
+    showCustomAlert("This note no longer exists.", "Notification");
+    await scanNotifications();
+    return;
+  }
+
+  const userRes = await fetch(DB_URL+`/users/${note.owner}.json`);
+  const user = await userRes.json() || {};
+  openNoteModal(item.noteId, note, user.avatar || "😀", user.displayName || note.owner);
+  toggleNotificationPanel(false);
+  await scanNotifications();
+}
+
+async function markAllNotificationsRead() {
+  const seen = getNotificationSeenState();
+
+  for (const item of notificationItems) {
+    if (item.type === "like") seen.likes[item.key] = true;
+    if (item.type === "comment") seen.comments[item.key] = true;
+    if (item.type === "chat" && item.user) {
+      const cid = chatId(currentUser, item.user);
+      for (const msgId of item.messageIds || []) {
+        await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
+          method: "PATCH",
+          body: JSON.stringify({ seen: true })
+        });
+      }
+    }
+  }
+
+  saveNotificationSeenState(seen);
+  notificationItems = [];
+  lastNotificationSignature = "";
+  renderNotificationBar([]);
+  toggleNotificationPanel(false);
+  loadChatFriends();
+}
+
+
+async function updateDashboardStats() {
+  if (!currentUser) return;
+  const notesRes = await fetch(DB_URL+"/notes.json");
+  const notes = await notesRes.json() || {};
+  const friendsRes = await fetch(DB_URL+`/users/${currentUser}/friends.json`);
+  const friends = await friendsRes.json() || {};
+  const savedRes = await fetch(DB_URL+`/users/${currentUser}/savedNotes.json`);
+  const saved = await savedRes.json() || {};
+  const ownNotes = Object.values(notes).filter(n => n.owner === currentUser);
+  const totalLikes = ownNotes.reduce((sum,n)=>sum + Object.keys(n.likes || {}).length,0);
+  const totalComments = ownNotes.reduce((sum,n)=>sum + Object.keys(n.comments || {}).length,0);
+  if (document.getElementById("dashPostsCount")) dashPostsCount.textContent = ownNotes.length;
+  if (document.getElementById("dashFriendsCount")) dashFriendsCount.textContent = Object.keys(friends).length;
+  if (document.getElementById("dashSavedCount")) dashSavedCount.textContent = Object.keys(saved).length;
+  if (document.getElementById("profileLikesMetric")) profileLikesMetric.textContent = totalLikes;
+  if (document.getElementById("profileCommentsMetric")) profileCommentsMetric.textContent = totalComments;
+  if (document.getElementById("profileSavedMetric")) profileSavedMetric.textContent = Object.keys(saved).length;
+}
+
+function toggleBioEditor(forceOpen = null) {
+  const editor = document.getElementById("bioEditor");
+  if (!editor) return;
+  const shouldOpen = forceOpen === null ? editor.classList.contains("hidden") : forceOpen;
+  editor.classList.toggle("hidden", !shouldOpen);
+  if (shouldOpen) setTimeout(()=>document.getElementById("profileBioInput")?.focus(), 30);
+}
+
+async function loadProfileBio() {
+  if (!currentUser) return;
+  const r = await fetch(DB_URL+`/users/${currentUser}.json`);
+  const user = await r.json() || {};
+  const bio = user.bio || "";
+  const text = document.getElementById("profileBioText");
+  const input = document.getElementById("profileBioInput");
+  if (text) text.textContent = bio || "No bio yet.";
+  if (input) input.value = bio;
+}
+
+async function saveProfileBio() {
+  const input = document.getElementById("profileBioInput");
+  const bio = input ? input.value.trim().slice(0, 240) : "";
+  await fetch(DB_URL+`/users/${currentUser}.json`, { method:"PATCH", body:JSON.stringify({ bio }) });
+  toggleBioEditor(false);
+  await loadProfileBio();
+  showToast("Bio updated.");
+}
+
 // MESSENGER ARCHITECTURE
 function chatId(u1,u2){
   return [u1,u2].sort().join("_");
@@ -2683,6 +3662,7 @@ async function deleteConversation(user, event) {
     if (row) row.remove();
 
     await loadChatFriends();
+    scanNotifications();
     showCustomAlert("The full conversation has been deleted.", "Conversation Deleted");
   }, "Delete Conversation");
 }
@@ -2742,6 +3722,7 @@ async function sendGifMessage(gifUrl) {
 
   document.getElementById('gifDrawerBox').style.display = 'none';
   loadMessages();
+  scanNotifications();
 }
 
 function handleChatInputKeydown(event) {
@@ -2770,6 +3751,7 @@ async function sendMessage(){
   chatInput.value="";
   autoResizeTextarea(chatInput);
   loadMessages();
+  scanNotifications();
 }
 
 async function deleteMessage(msgId) {
@@ -2866,6 +3848,8 @@ async function loadMessages(){
   if(addedNewMessage) {
     messages.scrollTop=messages.scrollHeight;
   }
+
+  scanNotifications();
 }
 
 // TYPING ENGINE INDICATORS
@@ -2910,6 +3894,7 @@ function loadAll(){
   loadRequests();
   loadChatFriends();
   loadProfilePosts();
+  scanNotifications();
 }
 
 setInterval(async()=>{
@@ -2937,6 +3922,8 @@ setInterval(async()=>{
     loadProfilePosts();
     loadFolders();
   }
+
+  scanNotifications();
 
 },2000);
 
