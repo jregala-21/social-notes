@@ -287,6 +287,28 @@ footer {
   font-size: 14px; border-radius: 6px; opacity: 0.85;
 }
 .comment-delete-btn:hover { background: rgba(228, 30, 63, 0.12); color: var(--danger); opacity: 1; }
+.comment-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.comment-copy-btn {
+  flex-shrink: 0; background: transparent; color: var(--text-primary); padding: 4px 6px;
+  font-size: 14px; border-radius: 6px; opacity: 0.85;
+}
+.comment-copy-btn:hover { background: var(--border-color); color: var(--text-primary); opacity: 1; }
+.edit-note-form-grid {
+  display: grid;
+  gap: 8px;
+}
+.edit-note-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.edit-note-actions button { padding: 8px 12px; font-size: 13px; }
 .modal-note-input-area {
   display:flex; gap:8px; border-top:1px solid var(--border-color); padding-top:10px; align-items:flex-end;
 }
@@ -503,7 +525,7 @@ footer {
           </div>
           <div class="create-note-form-actions">
             <button class="secondary small-action-btn" onclick="toggleCreateNoteForm('feed', false)">Cancel</button>
-            <!-- <button class="copy-btn small-action-btn" onclick="copyDraftNote('feed')">📋 Copy</button> -->
+            <button class="copy-btn small-action-btn" onclick="copyDraftNote('feed')">📋 Copy</button>
             <button class="small-action-btn" onclick="addNote('feed')">Post</button>
           </div>
           <div id="feedCopyFeedback" class="copy-feedback"></div>
@@ -655,6 +677,7 @@ footer {
           <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;"></div>
           <div class="modal-post-actions">
             <button class="copy-btn" onclick="copyActiveModalNote(event)">📋 Copy Post</button>
+            <button id="modalEditPostBtn" class="secondary" style="display:none;" onclick="openEditNoteModal(currentActiveNoteId, event)">✏️ Edit Post</button>
           </div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
           <h5>Notes</h5>
@@ -663,6 +686,27 @@ footer {
         <div class="modal-note-input-area">
           <textarea id="modalCommentInput" placeholder="Add new notes..." rows="2"></textarea>
           <button id="modalCommentSubmitBtn">Add Note</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="editNoteModal" style="display:none;" onclick="closeEditNoteModal()">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-close-header">
+          <h4>Edit Note</h4>
+          <button class="secondary" style="padding:4px 10px;" onclick="closeEditNoteModal()">✕</button>
+        </div>
+        <div class="edit-note-form-grid">
+          <input id="editNoteTitleInput" placeholder="Title">
+          <textarea id="editNoteTextInput" placeholder="What's on your mind?" rows="5" oninput="autoResizeTextarea(this)"></textarea>
+          <div class="privacy-selectors">
+            <label><input type="radio" name="editPrivacy" value="public"> Public</label>
+            <label><input type="radio" name="editPrivacy" value="private"> Private</label>
+          </div>
+          <div class="edit-note-actions">
+            <button class="secondary" onclick="closeEditNoteModal()">Cancel</button>
+            <button onclick="saveEditedNote()">Save Changes</button>
+          </div>
         </div>
       </div>
     </div>
@@ -709,6 +753,7 @@ let currentAttachedFileBase64 = { feed: "", profile: "" };
 let feedLoadToken = 0;
 let feedFilterTimer = null;
 let profileActivePrivacy = "public";
+let currentEditingNoteId = null;
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -739,7 +784,7 @@ function autoResizeTextarea(el) {
 }
 
 function setupAutoResizeTextareas() {
-  ["noteInput", "profileNoteInput", "chatInput", "modalCommentInput"].forEach(id => {
+  ["noteInput", "profileNoteInput", "chatInput", "modalCommentInput", "editNoteTextInput"].forEach(id => {
     const el = document.getElementById(id);
     if (el) autoResizeTextarea(el);
   });
@@ -800,7 +845,7 @@ function showCopyFeedback(source, message) {
 }
 
 function copyDraftNote(source = "feed") {
-  const fields = getNoteFormFields(source);
+  const fields = getCreateNoteFields(source);
   const title = fields.titleInput ? fields.titleInput.value.trim() : "";
   const text = fields.textInput ? fields.textInput.value.trim() : "";
   const copyValue = buildNoteCopyText({ title, text });
@@ -834,6 +879,84 @@ async function copyActiveModalNote(event) {
   if (event) event.stopPropagation();
   if (!currentActiveNoteId) return;
   await copyNotePost(currentActiveNoteId, event);
+}
+
+async function copySubNoteText(text, event) {
+  if (event) event.stopPropagation();
+  await copyTextToClipboard(text || "", "The subnote has been copied.");
+}
+
+async function openEditNoteModal(id, event) {
+  if (event) event.stopPropagation();
+
+  let r = await fetch(DB_URL+`/notes/${id}.json`);
+  let note = await r.json();
+
+  if (!note) {
+    showCustomAlert("This note no longer exists.", "Edit Failed");
+    return;
+  }
+
+  if (note.owner !== currentUser) {
+    showCustomAlert("You can only edit your own note posts.", "Edit Not Allowed");
+    return;
+  }
+
+  currentEditingNoteId = id;
+  document.getElementById("editNoteTitleInput").value = note.title || "";
+  document.getElementById("editNoteTextInput").value = note.text || "";
+
+  const privacy = note.privacy || "public";
+  document.querySelectorAll('input[name="editPrivacy"]').forEach(input => {
+    input.checked = input.value === privacy;
+  });
+
+  editNoteModal.style.display = "flex";
+  autoResizeTextarea(document.getElementById("editNoteTextInput"));
+  setTimeout(() => document.getElementById("editNoteTitleInput").focus(), 50);
+}
+
+function closeEditNoteModal() {
+  editNoteModal.style.display = "none";
+  currentEditingNoteId = null;
+}
+
+async function saveEditedNote() {
+  if (!currentEditingNoteId) return;
+
+  const title = document.getElementById("editNoteTitleInput").value.trim();
+  const text = document.getElementById("editNoteTextInput").value.trim();
+  const privacyInput = document.querySelector('input[name="editPrivacy"]:checked');
+  const privacy = privacyInput ? privacyInput.value : "public";
+
+  if (!title && !text) {
+    showCustomAlert("The edited note cannot be empty.", "Missing Note Content");
+    return;
+  }
+
+  await fetch(DB_URL+`/notes/${currentEditingNoteId}.json`, {
+    method: "PATCH",
+    body: JSON.stringify({ title, text, privacy })
+  });
+
+  const editedId = currentEditingNoteId;
+  closeEditNoteModal();
+
+  if (currentActiveNoteId === editedId) {
+    currentCommentsStringState = "";
+    let r = await fetch(DB_URL+`/notes/${editedId}.json`);
+    let updatedNote = await r.json();
+    if (updatedNote) {
+      modalPostTitle.innerText = updatedNote.title || "";
+      modalPostTitle.style.display = updatedNote.title ? "block" : "none";
+      modalPostText.innerText = updatedNote.text || "";
+      syncModalDetails(editedId);
+    }
+  }
+
+  loadFeed();
+  loadProfilePosts();
+  showCustomAlert("Your note post has been updated.", "Note Updated");
 }
 
 function toggleCreateNoteForm(source = "feed", forceOpen = null) {
@@ -1312,6 +1435,9 @@ async function syncModalDetails(id) {
   let note = await r.json();
   if(!note) return;
 
+  const modalEditBtn = document.getElementById("modalEditPostBtn");
+  if (modalEditBtn) modalEditBtn.style.display = note.owner === currentUser ? "inline-flex" : "none";
+
   let likesCount = note.likes ? Object.keys(note.likes).length : 0;
   let commentsCount = note.comments ? Object.keys(note.comments).length : 0;
 
@@ -1351,6 +1477,17 @@ async function syncModalDetails(id) {
     content.appendChild(textNode);
     div.appendChild(content);
 
+    let actionGroup = document.createElement("div");
+    actionGroup.className = "comment-actions";
+
+    let copyBtn = document.createElement("button");
+    copyBtn.className = "comment-copy-btn";
+    copyBtn.type = "button";
+    copyBtn.title = "Copy this subnote";
+    copyBtn.innerHTML = "📋";
+    copyBtn.onclick = (event) => copySubNoteText(c.text || "", event);
+    actionGroup.appendChild(copyBtn);
+
     if (c.user === currentUser || note.owner === currentUser) {
       let deleteBtn = document.createElement("button");
       deleteBtn.className = "comment-delete-btn";
@@ -1358,9 +1495,10 @@ async function syncModalDetails(id) {
       deleteBtn.title = "Delete this note";
       deleteBtn.innerHTML = "🗑️";
       deleteBtn.onclick = (event) => deleteModalComment(id, cId, event);
-      div.appendChild(deleteBtn);
+      actionGroup.appendChild(deleteBtn);
     }
 
+    div.appendChild(actionGroup);
     container.appendChild(div);
   }
 }
@@ -1462,6 +1600,7 @@ async function loadFeed(){
       </div>
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
+        ${isOwner ? `<button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
@@ -1552,6 +1691,7 @@ async function loadProfilePosts(){
       </div>
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
+        <button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
