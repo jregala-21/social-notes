@@ -159,6 +159,7 @@ footer {
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 .note-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; width: 100%; }
+.note-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); word-break: break-word; }
 .note-text { font-size: 15px; line-height: 1.4; margin-bottom: 10px; }
 .note-meta { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; display: flex; gap: 12px; }
 .note-actions { display: flex; gap: 8px; }
@@ -359,6 +360,7 @@ footer {
     <div id="view-feed" class="view-panel active">
       <div class="card">
         <h4>Create a Note</h4>
+        <input id="noteTitleInput" placeholder="Title">
         <textarea id="noteInput" placeholder="What's on your mind?" rows="3"></textarea>
         
         <div class="file-input-wrapper">
@@ -461,6 +463,7 @@ footer {
         </div>
         <div class="modal-body">
           <div id="modalAttachmentArea"></div>
+          <h4 id="modalPostTitle" style="margin:0 0 8px 0; word-break:break-word;"></h4>
           <p id="modalPostText" style="font-size:16px; line-height:1.4; margin-top:0; white-space:pre-wrap;"></p>
           <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;"></div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
@@ -839,18 +842,20 @@ async function unfriend(f){
 
 // FEED LOGIC
 async function addNote(){
+  let title=noteTitleInput.value.trim();
   let text=noteInput.value.trim();
   let privacy=document.querySelector("input[name=privacy]:checked").value;
-  if(!text && !currentAttachedFileBase64) return;
+  if(!title && !text && !currentAttachedFileBase64) return;
 
   let id=Date.now();
-  let payload = { text, owner:currentUser, privacy };
+  let payload = { title, text, owner:currentUser, privacy };
 
   if(currentAttachedFileBase64) {
     payload.attachment = currentAttachedFileBase64;
   }
 
   await fetch(DB_URL+"/notes/"+id+".json",{method:"PUT", body:JSON.stringify(payload)});
+  noteTitleInput.value="";
   noteInput.value="";
   clearAttachedFile();
   loadFeed();
@@ -897,6 +902,8 @@ function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
   currentCommentsStringState = "";
   noteModal.style.display = "flex";
   modalAuthor.innerText = `${userAvatar} ${displayedAuthorName}'s Post`;
+  modalPostTitle.innerText = noteObj.title || "";
+  modalPostTitle.style.display = noteObj.title ? "block" : "none";
   modalPostText.innerText = noteObj.text;
   
   let mediaArea = document.getElementById("modalAttachmentArea");
@@ -1005,6 +1012,7 @@ async function loadFeed(){
       : "";
 
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
+    let titleMarkup = n.title ? `<div class="note-title">${n.title}</div>` : "";
 
     div.innerHTML=`
       ${deleteButtonMarkup}
@@ -1014,6 +1022,7 @@ async function loadFeed(){
           <b>${authorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${n.owner}</span>
         </div>
       </div>
+      ${titleMarkup}
       <div class="note-text">${n.text}</div>
       ${mediaMarkup}
       <div class="note-meta">
