@@ -84,6 +84,26 @@ header h1 { font-size: 1.2rem; margin: 0; color: var(--accent); }
   align-items: center;
 }
 
+/* AUTH (login/signup) styles */
+.auth-tabs .auth-tab {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.auth-tabs .auth-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.auth-view { display: block; }
+.auth-view.hidden { display: none; }
+.auth-view input { margin-top: 8px; }
+.auth-view .actions { display:flex; gap:8px; margin-top:10px; }
+
+
 .theme-btn, .refresh-btn {
   background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px;
 }
@@ -209,7 +229,44 @@ footer {
   z-index: 1000;
   will-change: transform;
   contain: layout paint;
+  transition: transform 0.26s ease, opacity 0.2s ease;
 }
+
+.nav-toggle {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1001;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+body.nav-hidden {
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+
+body.nav-hidden #app {
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+
+body.nav-hidden .nav-tabs {
+  transform: translateX(-50%) translateY(calc(100% + 18px)) translateZ(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.nav-hidden .nav-toggle {
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
 .tab-item {
   position: relative;
   background: transparent;
@@ -401,12 +458,19 @@ footer {
 .file-preview-container img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
 .file-preview-remove { position: absolute; top: -5px; left: 65px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
 
-.post-del-btn {
-  position: absolute; top: 14px; right: 14px;
-  background: none; border: none; padding: 6px; cursor: pointer;
-  font-size: 14px; color: var(--danger); opacity: 0.6; transition: opacity 0.2s, transform 0.2s;
+.post-top-actions {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; gap: 6px; align-items: center; z-index: 6;
 }
-.post-del-btn:hover { opacity: 1; background: none; transform: scale(1.15); }
+.post-top-actions .post-top-btn {
+  background: none; border: none; padding: 6px; cursor: pointer;
+  font-size: 16px; color: var(--text-primary); opacity: 0.85; border-radius: 8px;
+  transition: opacity 0.12s ease, transform 0.12s ease, background-color 0.12s ease;
+}
+.post-top-actions .post-top-btn:hover { opacity: 1; transform: scale(1.08); background: var(--border-color); }
+.post-top-actions .post-del-btn {
+  color: var(--danger); opacity: 0.9;
+}
 
 /* LIKE BUTTON POPS EFFECT */
 @keyframes like-bounce {
@@ -568,9 +632,15 @@ footer {
 
 #chatBox {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--bg-card); z-index: 1500; margin: 0;
+  background: var(--bg-card); z-index: 3000; margin: 0;
   display: flex; flex-direction: column; border-radius: 0;
 }
+
+body.chat-open .nav-tabs,
+body.chat-open .nav-toggle {
+  display: none;
+}
+
 .chat-header {
   padding: 15px; border-bottom: 1px solid var(--border-color);
   display: flex; align-items: center; justify-content: space-between;
@@ -605,7 +675,8 @@ footer {
 .msg-wrapper:hover .msg-del-btn { opacity: 1; }
 
 .chat-input-area {
-  padding: 12px; border-top: 1px solid var(--border-color);
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-color);
   display: flex; gap: 8px; align-items: flex-end; background: var(--bg-card);
 }
 .chat-input-area input, .chat-input-area textarea { margin: 0; flex: 1; }
@@ -1411,6 +1482,15 @@ body.form-modal-open {
   }
 }
 
+/* Ensure single-button modals (e.g. OK) are centered on narrow screens
+   and don't awkwardly align to the grid used for multi-button layouts. */
+.global-modal-actions > button:only-child {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(320px, 72%);
+  max-width: 92%;
+}
+
 
 /* BOTTOM TAB OVERLAP FIX: keep form buttons clear of the fixed navigation */
 .form-modal-overlay,
@@ -1495,12 +1575,26 @@ body.form-modal-open {
 <div class="container">
 
   <div class="card" id="auth">
-    <h4>Welcome to Your Notes!</h4>
-    <input id="username" placeholder="Username">
-    <input id="password" type="password" placeholder="Password">
-    <div class="actions">
-      <button onclick="login()">Login</button>
-      <button class="secondary" onclick="signup()">Sign Up</button>
+    <h4 id="authTitle">Welcome to Your Notes!</h4>
+
+    <div id="loginView" class="auth-view">
+      <input id="username" placeholder="Username">
+      <input id="password" type="password" placeholder="Password">
+      <div class="actions">
+        <button onclick="login()">Login</button>
+        <button class="secondary" onclick="showAuthTab('signup')">Create account</button>
+      </div>
+    </div>
+
+    <div id="signupView" class="auth-view hidden">
+      <input id="signupDisplayName" placeholder="Display name">
+      <input id="signupUsername" placeholder="Username">
+      <input id="signupPassword" type="password" placeholder="Password">
+      <input id="signupConfirm" type="password" placeholder="Confirm password">
+      <div class="actions">
+        <button class="secondary" onclick="showAuthTab('login')">Back to Login</button>
+        <button class="small-action-btn" onclick="signup()">Sign Up</button>
+      </div>
     </div>
   </div>
 
@@ -1868,6 +1962,7 @@ body.form-modal-open {
       @regalawebstyle
     </footer>
 
+    <button class="nav-toggle" id="navToggleBtn" onclick="toggleBottomNav()" aria-label="Hide bottom navigation">⌄</button>
     <nav class="nav-tabs">
       <button class="tab-item active" data-view="feed" onclick="switchView('feed', this)">
         <span class="tab-icon">📰</span><span>Feed</span>
@@ -1919,6 +2014,25 @@ let toastCounter = 0;
 let notificationItems = [];
 let lastNotificationSignature = "";
 let notificationScanInProgress = false;
+
+function setBottomNavHidden(isHidden) {
+  const toggleBtn = document.getElementById("navToggleBtn");
+  document.body.classList.toggle("nav-hidden", isHidden);
+  localStorage.setItem("bottomNavHidden", isHidden ? "true" : "false");
+
+  if (toggleBtn) {
+    toggleBtn.textContent = isHidden ? "⌃" : "⌄";
+    toggleBtn.setAttribute("aria-label", isHidden ? "Show bottom navigation" : "Hide bottom navigation");
+  }
+}
+
+function toggleBottomNav() {
+  setBottomNavHidden(!document.body.classList.contains("nav-hidden"));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  setBottomNavHidden(localStorage.getItem("bottomNavHidden") === "true");
+});
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -2595,22 +2709,49 @@ function clearAttachedFile(event, source = "feed") {
 
 // AUTHENTICATION
 async function signup(){
-  let u=username.value.trim(), p=password.value.trim();
-  if(!u||!p) return showCustomAlert("Please fill in all fields before signing up.", "Missing Info");
+  const disp = (document.getElementById('signupDisplayName')||{}).value?.trim();
+  const u = (document.getElementById('signupUsername')||{}).value?.trim();
+  const p = (document.getElementById('signupPassword')||{}).value?.trim();
+  const c = (document.getElementById('signupConfirm')||{}).value?.trim();
+
+  if(!u||!p||!c) return showCustomAlert("Please fill in all signup fields.", "Missing Info");
+  if(p !== c) return showCustomAlert("Passwords do not match.", "Validation Error");
 
   let r=await fetch(DB_URL+"/users/"+u+".json");
   if(await r.json()) return showCustomAlert("This username is already taken. Try another.", "Account Exists");
 
   await fetch(DB_URL+"/users/"+u+".json",{
     method:"PUT",
-    body:JSON.stringify({password:p,avatar:"😀",displayName:u})
+    body:JSON.stringify({password:p,avatar:"😀",displayName: disp || u})
   });
 
-  // Passes a cleanup routine that fires ONLY after the user clicks "OK"
+  // After creating account, switch back to login view and clear signup inputs after OK
   showCustomAlert("Your account has been created successfully! You can now log in.", "Success", () => {
-    username.value = "";
-    password.value = "";
+    document.getElementById('signupDisplayName').value = "";
+    document.getElementById('signupUsername').value = "";
+    document.getElementById('signupPassword').value = "";
+    document.getElementById('signupConfirm').value = "";
+    showAuthTab('login');
   });
+}
+
+function showAuthTab(tab = 'login'){
+  const loginView = document.getElementById('loginView');
+  const signupView = document.getElementById('signupView');
+  const loginBtn = document.getElementById('loginTabBtn');
+  const signupBtn = document.getElementById('signupTabBtn');
+
+  if(tab === 'signup'){
+    if(loginView) loginView.classList.add('hidden');
+    if(signupView) signupView.classList.remove('hidden');
+    if(loginBtn) loginBtn.classList.remove('active');
+    if(signupBtn) signupBtn.classList.add('active');
+  } else {
+    if(loginView) loginView.classList.remove('hidden');
+    if(signupView) signupView.classList.add('hidden');
+    if(loginBtn) loginBtn.classList.add('active');
+    if(signupBtn) signupBtn.classList.remove('active');
+  }
 }
 
 async function login(){
@@ -3145,9 +3286,14 @@ async function loadFeed(){
     let hasUserLiked = n.likes && n.likes[currentUser];
     let isSaved = !!savedNotes[id];
 
-    let deleteButtonMarkup = isOwner 
-      ? `<button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>` 
-      : "";
+    let topActionsMarkup = `
+      <div class="post-top-actions">
+        <button class="post-top-btn" onclick="event.stopPropagation(); copyNotePost('${id}', event)" title="Copy">📋</button>
+        <button class="post-top-btn" onclick="event.stopPropagation(); toggleBookmarkNote('${id}', event)" title="Save">🔖</button>
+        ${isOwner ? `<button class="post-top-btn" onclick="event.stopPropagation(); openEditNoteModal('${id}', event)" title="Edit">✏️</button>` : ""}
+        ${isOwner ? `<button class="post-top-btn post-del-btn" onclick="event.stopPropagation(); deleteNote('${id}', event)" title="Delete">🗑️</button>` : ""}
+      </div>
+    `;
 
     let safeAuthorDisplayName = escapeHTML(authorDisplayName);
     let safeOwner = escapeHTML(n.owner);
@@ -3159,7 +3305,7 @@ async function loadFeed(){
     let badgesMarkup = renderNoteBadges(n);
 
     div.innerHTML=`
-      ${deleteButtonMarkup}
+      ${topActionsMarkup}
       <div class="note-header">
         <span class="avatar">${safeAvatar}</span>
         <div>
@@ -3175,9 +3321,6 @@ async function loadFeed(){
         <span>📝 ${commentsCount} Notes</span>
       </div>
       <div class="note-actions">
-        <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
-        <button class="secondary" onclick="toggleBookmarkNote('${id}', event)">${isSaved ? "🔖 Saved" : "🔖 Save"}</button>
-        ${isOwner ? `<button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>` : ""}
         ${isOwner && n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
@@ -3305,7 +3448,12 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
     let badgeMarkup = renderNoteBadges(n);
 
     div.innerHTML = `
-      <button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>
+      <div class="post-top-actions">
+        <button class="post-top-btn" onclick="event.stopPropagation(); copyNotePost('${id}', event)" title="Copy">📋</button>
+        <button class="post-top-btn" onclick="event.stopPropagation(); openEditNoteModal('${id}', event)" title="Edit">✏️</button>
+        <button class="post-top-btn" onclick="event.stopPropagation(); openAddToFolderModal('${id}', event)" title="Folder">📁</button>
+        <button class="post-top-btn post-del-btn" onclick="event.stopPropagation(); deleteNote('${id}', event)" title="Delete">🗑️</button>
+      </div>
       <div class="note-header">
         <span class="avatar">${safeAvatar}</span>
         <div>
@@ -3322,10 +3470,7 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
         <span>📝 ${commentsCount} Notes</span>
       </div>
       <div class="note-actions">
-        <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
-        <button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>
         <button class="secondary" onclick="openAddToFolderModal('${id}', event)">📁 Folder</button>
-        <button class="secondary" onclick="toggleBookmarkNote('${id}', event)">${isSaved ? "🔖 Saved" : "🔖 Save"}</button>
         ${n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
@@ -4062,6 +4207,7 @@ function deleteCurrentConversation(event) {
 
 async function openChat(user){
   currentChatUser=user;
+  document.body.classList.add("chat-open");
   chatBox.style.display="flex";
   document.getElementById('gifDrawerBox').style.display = 'none';
   
@@ -4076,6 +4222,7 @@ async function openChat(user){
 
 function closeChat() {
   chatBox.style.display="none";
+  document.body.classList.remove("chat-open");
   currentChatUser=null;
   lastChatData = "";
 }
