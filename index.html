@@ -455,6 +455,58 @@ footer {
   background: var(--border-color);
 }
 
+
+.collab-btn {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+.collab-btn:hover {
+  opacity: 0.9;
+  background: var(--border-color);
+}
+.collaborator-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+.collaborator-form input {
+  margin: 0;
+}
+.collaborator-help {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.collaborator-list-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 12px 0 6px 0;
+}
+.collaborator-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.collaborator-row:last-child {
+  border-bottom: none;
+}
+.collaborator-empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-style: italic;
+  padding: 8px 0;
+}
+.shared-private-badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .filter-grid input { margin-top: 0; margin-bottom: 0; }
 .filter-form-actions {
@@ -678,6 +730,7 @@ footer {
           <div class="modal-post-actions">
             <button class="copy-btn" onclick="copyActiveModalNote(event)">📋 Copy Post</button>
             <button id="modalEditPostBtn" class="secondary" style="display:none;" onclick="openEditNoteModal(currentActiveNoteId, event)">✏️ Edit Post</button>
+            <button id="modalSharePrivateBtn" class="collab-btn" style="display:none;" onclick="openCollaboratorModal(currentActiveNoteId, event)">👥 Collaborators</button>
           </div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
           <h5>Notes</h5>
@@ -708,6 +761,26 @@ footer {
             <button onclick="saveEditedNote()">Save Changes</button>
           </div>
         </div>
+      </div>
+    </div>
+
+
+    <div class="modal-overlay" id="collaboratorModal" style="display:none;" onclick="closeCollaboratorModal()">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-close-header">
+          <h4>Private Note Collaborators</h4>
+          <button class="secondary" style="padding:4px 10px;" onclick="closeCollaboratorModal()">✕</button>
+        </div>
+        <div class="collaborator-help">
+          Share this private note with a specific username. Shared users can see the private note in their Feed.
+        </div>
+        <div class="collaborator-form">
+          <input id="collaboratorUsernameInput" placeholder="Enter username...">
+          <button onclick="sharePrivateNoteWithUser()">Share</button>
+        </div>
+        <div id="collaboratorFeedback" class="copy-feedback"></div>
+        <div class="collaborator-list-title">Shared with</div>
+        <div id="collaboratorList"></div>
       </div>
     </div>
 
@@ -754,6 +827,7 @@ let feedLoadToken = 0;
 let feedFilterTimer = null;
 let profileActivePrivacy = "public";
 let currentEditingNoteId = null;
+let currentSharingNoteId = null;
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -957,6 +1031,140 @@ async function saveEditedNote() {
   loadFeed();
   loadProfilePosts();
   showCustomAlert("Your note post has been updated.", "Note Updated");
+}
+
+
+async function openCollaboratorModal(id, event) {
+  if (event) event.stopPropagation();
+
+  let r = await fetch(DB_URL+`/notes/${id}.json`);
+  let note = await r.json();
+
+  if (!note) {
+    showCustomAlert("This note no longer exists.", "Share Failed");
+    return;
+  }
+
+  if (note.owner !== currentUser) {
+    showCustomAlert("Only the post owner can manage collaborators.", "Not Allowed");
+    return;
+  }
+
+  if ((note.privacy || "public") !== "private") {
+    showCustomAlert("Collaborators are only available for private notes.", "Private Notes Only");
+    return;
+  }
+
+  currentSharingNoteId = id;
+  document.getElementById("collaboratorUsernameInput").value = "";
+  document.getElementById("collaboratorFeedback").innerText = "";
+  renderCollaboratorList(note.sharedWith || {});
+  collaboratorModal.style.display = "flex";
+  setTimeout(() => document.getElementById("collaboratorUsernameInput").focus(), 50);
+}
+
+function closeCollaboratorModal() {
+  collaboratorModal.style.display = "none";
+  currentSharingNoteId = null;
+}
+
+function renderCollaboratorList(sharedWith = {}) {
+  const list = document.getElementById("collaboratorList");
+  if (!list) return;
+
+  const users = Object.keys(sharedWith || {});
+  if (users.length === 0) {
+    list.innerHTML = `<div class="collaborator-empty">No collaborators yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  users.sort().forEach(username => {
+    const row = document.createElement("div");
+    row.className = "collaborator-row";
+
+    const name = document.createElement("span");
+    name.textContent = `@${username}`;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "danger small-action-btn";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.onclick = () => removeCollaborator(username);
+
+    row.appendChild(name);
+    row.appendChild(removeBtn);
+    list.appendChild(row);
+  });
+}
+
+async function refreshCollaboratorModal() {
+  if (!currentSharingNoteId) return;
+
+  let r = await fetch(DB_URL+`/notes/${currentSharingNoteId}.json`);
+  let note = await r.json();
+  if (!note) {
+    closeCollaboratorModal();
+    return;
+  }
+
+  renderCollaboratorList(note.sharedWith || {});
+}
+
+async function sharePrivateNoteWithUser() {
+  if (!currentSharingNoteId) return;
+
+  const input = document.getElementById("collaboratorUsernameInput");
+  const feedback = document.getElementById("collaboratorFeedback");
+  const username = input.value.trim();
+
+  if (!username) {
+    if (feedback) feedback.innerText = "Enter a username first.";
+    return;
+  }
+
+  if (username === currentUser) {
+    if (feedback) feedback.innerText = "You already own this private note.";
+    return;
+  }
+
+  let userRes = await fetch(DB_URL+`/users/${username}.json`);
+  let userData = await userRes.json();
+  if (!userData) {
+    showCustomAlert("That username does not exist.", "User Not Found");
+    return;
+  }
+
+  let noteRes = await fetch(DB_URL+`/notes/${currentSharingNoteId}.json`);
+  let note = await noteRes.json();
+  if (!note || note.owner !== currentUser || (note.privacy || "public") !== "private") {
+    showCustomAlert("This private note can no longer be shared.", "Share Failed");
+    return;
+  }
+
+  await fetch(DB_URL+`/notes/${currentSharingNoteId}/sharedWith/${username}.json`, {
+    method: "PUT",
+    body: "true"
+  });
+
+  input.value = "";
+  if (feedback) feedback.innerText = `Shared with @${username}.`;
+  await refreshCollaboratorModal();
+  loadFeed();
+  loadProfilePosts();
+}
+
+async function removeCollaborator(username) {
+  if (!currentSharingNoteId) return;
+
+  showCustomConfirm(`Remove @${username} from this private note?`, async () => {
+    await fetch(DB_URL+`/notes/${currentSharingNoteId}/sharedWith/${username}.json`, { method: "DELETE" });
+    const feedback = document.getElementById("collaboratorFeedback");
+    if (feedback) feedback.innerText = `Removed @${username}.`;
+    await refreshCollaboratorModal();
+    loadFeed();
+    loadProfilePosts();
+  }, "Remove Collaborator");
 }
 
 function toggleCreateNoteForm(source = "feed", forceOpen = null) {
@@ -1438,10 +1646,16 @@ async function syncModalDetails(id) {
   const modalEditBtn = document.getElementById("modalEditPostBtn");
   if (modalEditBtn) modalEditBtn.style.display = note.owner === currentUser ? "inline-flex" : "none";
 
+  const modalShareBtn = document.getElementById("modalSharePrivateBtn");
+  const isPrivateOwner = note.owner === currentUser && (note.privacy || "public") === "private";
+  if (modalShareBtn) modalShareBtn.style.display = isPrivateOwner ? "inline-flex" : "none";
+
   let likesCount = note.likes ? Object.keys(note.likes).length : 0;
   let commentsCount = note.comments ? Object.keys(note.comments).length : 0;
+  let sharedCount = note.sharedWith ? Object.keys(note.sharedWith).length : 0;
+  let sharedMeta = (note.privacy || "public") === "private" ? ` &nbsp;•&nbsp; 👥 ${sharedCount} Shared` : "";
 
-  modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 📝 ${commentsCount} Notes`;
+  modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 📝 ${commentsCount} Notes${sharedMeta}`;
 
   let newCommentsString = JSON.stringify(note.comments || {});
   if(newCommentsString === currentCommentsStringState) return; 
@@ -1546,8 +1760,9 @@ async function loadFeed(){
   for(let [id,n] of Object.entries(notes||{}).reverse()){
     let isOwner=n.owner===currentUser;
     let isFriend=friends[n.owner];
+    let isSharedPrivate=n.privacy==="private" && n.sharedWith && n.sharedWith[currentUser];
 
-    if(!(isOwner || (n.privacy==="public"&&isFriend))) continue;
+    if(!(isOwner || (n.privacy==="public"&&isFriend) || isSharedPrivate)) continue;
 
     let userRes = await fetch(DB_URL+"/users/"+n.owner+".json");
     let user = await userRes.json() || {};
@@ -1601,6 +1816,7 @@ async function loadFeed(){
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         ${isOwner ? `<button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>` : ""}
+        ${isOwner && n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
@@ -1692,6 +1908,7 @@ async function loadProfilePosts(){
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         <button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>
+        ${n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
     `;
