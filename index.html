@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Notes Social WebApp</title>
 
 <style>
@@ -152,6 +152,17 @@ footer {
 .note-actions { display: flex; gap: 8px; }
 .note-actions button { padding: 8px 14px; font-size: 13px; }
 
+/* ATTACHMENT CARD MEDIA DISPLAY */
+.attached-media {
+  width: 100%; max-height: 280px; object-fit: cover;
+  border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border-color);
+}
+
+.file-input-wrapper { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.file-preview-container { position: relative; display: none; margin-top: 5px; }
+.file-preview-container img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+.file-preview-remove { position: absolute; top: -5px; left: 65px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
+
 .post-del-btn {
   position: absolute; top: 14px; right: 14px;
   background: none; border: none; padding: 6px; cursor: pointer;
@@ -245,6 +256,11 @@ footer {
 .msg-wrapper.me .msg { background: var(--msg-me); color: var(--msg-me-text); border-bottom-right-radius: 4px; }
 .msg-wrapper.them .msg { background: var(--msg-them); color: var(--msg-them-text); border-bottom-left-radius: 4px; }
 
+/* GIF IMAGE RENDERING INSIDE MESSAGES */
+.msg img.chat-gif-view {
+  max-width: 100%; display: block; border-radius: 8px; margin-top: 4px;
+}
+
 .msg-del-btn {
   background: none; border: none; padding: 4px; cursor: pointer;
   font-size: 12px; opacity: 0; transition: opacity 0.2s; color: var(--danger);
@@ -257,6 +273,19 @@ footer {
 }
 .chat-input-area input { margin: 0; flex: 1; }
 .chat-input-area button { height: 42px; }
+
+/* GIF DRAWER LAYOUT */
+.gif-drawer {
+  display: none; flex-direction: column; background: var(--bg-primary);
+  border-top: 1px solid var(--border-color); max-height: 155px; overflow-y: auto; padding: 10px;
+}
+.gif-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.gif-grid img {
+  width: 100%; height: 65px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform 0.1s;
+}
+.gif-grid img:hover { transform: scale(1.04); }
 
 .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .filter-grid input { margin-top: 0; margin-bottom: 0; }
@@ -275,7 +304,6 @@ footer {
 
 <div class="container">
 
-  <!-- AUTH CARD -->
   <div class="card" id="auth">
     <h4>Welcome to Your Notes!</h4>
     <input id="username" placeholder="Username">
@@ -286,10 +314,8 @@ footer {
     </div>
   </div>
 
-  <!-- APPLICATION CORE CONTENT -->
   <div id="app" style="display:none;">
     
-    <!-- TOP USER PROFILE HEADER -->
     <div class="card profile-bar">
       <div class="user-info">
         <span id="avatar" class="avatar">😀</span>
@@ -298,11 +324,20 @@ footer {
       <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
     </div>
 
-    <!-- VIEW 1: FEED VIEW PANEL -->
     <div id="view-feed" class="view-panel active">
       <div class="card">
         <h4>Create a Note</h4>
         <textarea id="noteInput" placeholder="What's on your mind?" rows="3"></textarea>
+        
+        <div class="file-input-wrapper">
+          <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
+          <input type="file" id="noteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event)" style="margin: 4px 0; font-size: 13px; padding: 6px;">
+          <div class="file-preview-container" id="filePreviewBox">
+            <img id="filePreviewImg" src="" alt="preview">
+            <button class="file-preview-remove" onclick="clearAttachedFile(event)">✕</button>
+          </div>
+        </div>
+
         <div class="privacy-selectors">
           <label><input type="radio" name="privacy" value="public" checked> Public</label>
           <label><input type="radio" name="privacy" value="private"> Private</label>
@@ -322,7 +357,6 @@ footer {
       <div id="feed"></div>
     </div>
 
-    <!-- VIEW 2: FRIENDS VIEW PANEL -->
     <div id="view-friends" class="view-panel">
       <div class="card">
         <h4>Add Connections</h4>
@@ -359,7 +393,6 @@ footer {
       </div>
     </div>
 
-    <!-- VIEW 3: MESSENGER VIEW PANEL -->
     <div id="view-messages" class="view-panel">
       <div class="card">
         <h4>Active Conversations</h4>
@@ -367,7 +400,6 @@ footer {
       </div>
     </div>
 
-    <!-- CHAT MODULE OVERLAY WINDOW -->
     <div class="card" id="chatBox" style="display:none;">
       <div class="chat-header">
         <button class="secondary" onclick="closeChat()">← Back</button>
@@ -376,13 +408,19 @@ footer {
       </div>
       <div id="typingStatus" class="typing"></div>
       <div id="messages"></div>
+      
+      <div class="gif-drawer" id="gifDrawerBox">
+        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; color: var(--text-secondary);">Select a Trending GIF:</div>
+        <div class="gif-grid" id="gifSelectionGrid"></div>
+      </div>
+
       <div class="chat-input-area">
+        <button class="secondary" onclick="toggleGifDrawer()" style="height: 42px; padding: 0 12px;" title="Choose GIF">🎬</button>
         <input id="chatInput" placeholder="Type message..." oninput="typing()">
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
 
-    <!-- DETAILED NOTE/COMMENT INTERACTION OVERLAY MODAL -->
     <div class="modal-overlay" id="noteModal" style="display:none;" onclick="closeNoteModal()">
       <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-close-header">
@@ -390,6 +428,7 @@ footer {
           <button class="secondary" style="padding:4px 10px;" onclick="closeNoteModal()">✕</button>
         </div>
         <div class="modal-body">
+          <div id="modalAttachmentArea"></div>
           <p id="modalPostText" style="font-size:16px; line-height:1.4; margin-top:0; white-space:pre-wrap;"></p>
           <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;"></div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
@@ -403,12 +442,10 @@ footer {
       </div>
     </div>
 
-    <!-- MAIN FOOTER CREDIT SECTION -->
     <footer>
       @regalawebstyle
     </footer>
 
-    <!-- STICKY BOTTOM TAB NAVIGATION -->
     <nav class="nav-tabs">
       <button class="tab-item active" onclick="switchView('feed', this)">
         <span class="tab-icon">📰</span><span>Feed</span>
@@ -431,6 +468,20 @@ let currentUser=null, lastData="";
 let currentChatUser=null, lastChatData="";
 let typingTimeout;
 let currentActiveNoteId = null;
+let currentCommentsStringState = ""; 
+let currentAttachedFileBase64 = "";
+
+// Dynamic visual looping items for chat configurations
+const CHAT_GIF_COLLECTION = [
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6cmN2bWp0cHZ6cDJ6Ym41bnh6YmswN3Z0MWhmczFmNnp0ZTAwZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ntq5Fx7U9NAA/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHg1cjZ0MmsxZDV3dWZ3Ym9ubXJmcXJ0dm93YnU4NXAwdjZhcTVmciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cuPm4b8Oas9B6/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHhhZmdwMzd6dHAyYjhhN2N4a3M4MWpydDZvMHF5b2kyeWp1OTFhMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l3q2zVr6cu95nF6O4/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3YwZDVvN3I1N2YyNDM4Mzd0ZnIxeWh1cHplNHV6N3cyYWU3a216NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BcMJYctqn_GY4gXvR5/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzhwMWw4MGVpZWt4MTd6dnZobTh3OTZleW8zYnF0YTBndjZ0ZXByciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/t3s36s89PxH8OmcSIv/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOXA3OHhhODgzdTZrcmhpYWN0cnF0ZmpsaXhsbzYwMzA2N2U2MnR1NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26gR0YFZxW5Y1Ruk0/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnAydnJzdDhrMmJpZHJidmdtcDN5NXgzYXRka3AxdTFqbnZhcW9ubyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9oNGCw56GoJQA66Zs/giphy.gif",
+  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmZud2V1ODJmZnV3a3d5eGF6azVhcTJ5dzV5d2w4NXZkMmsxeDVrMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5ntdy5qmgfRJTWNYzV/giphy.gif"
+];
 
 // INITIALIZE THEME
 if (localStorage.getItem('theme') === 'dark') {
@@ -480,6 +531,35 @@ function switchView(viewId, btnToken) {
   if(viewId === 'messages') loadChatFriends();
 }
 
+// FILE PROCESSING AND ENFORCEMENT RULES
+function previewAttachedFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Strict Protection Check: Block PDFs explicitly
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    alert("Error: PDF files are not acceptable! Please upload an image file.");
+    clearAttachedFile();
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    currentAttachedFileBase64 = e.target.result;
+    document.getElementById('filePreviewImg').src = currentAttachedFileBase64;
+    document.getElementById('filePreviewBox').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearAttachedFile(event) {
+  if(event) event.preventDefault();
+  currentAttachedFileBase64 = "";
+  document.getElementById('noteFileElement').value = "";
+  document.getElementById('filePreviewBox').style.display = 'none';
+  document.getElementById('filePreviewImg').src = "";
+}
+
 // AUTHENTICATION
 async function signup(){
   let u=username.value.trim(), p=password.value.trim();
@@ -512,6 +592,7 @@ async function login(){
 
   setOnline(true);
   loadAll();
+  buildGifDrawerGrid();
 }
 
 // ONLINE HEURISTICS
@@ -657,12 +738,19 @@ async function unfriend(f){
 async function addNote(){
   let text=noteInput.value.trim();
   let privacy=document.querySelector("input[name=privacy]:checked").value;
-  if(!text) return;
+  if(!text && !currentAttachedFileBase64) return;
 
   let id=Date.now();
-  await fetch(DB_URL+"/notes/"+id+".json",{method:"PUT",
-    body:JSON.stringify({text, owner:currentUser, privacy})});
+  let payload = { text, owner:currentUser, privacy };
+
+  // Pack visual string into database entry if verified
+  if(currentAttachedFileBase64) {
+    payload.attachment = currentAttachedFileBase64;
+  }
+
+  await fetch(DB_URL+"/notes/"+id+".json",{method:"PUT", body:JSON.stringify(payload)});
   noteInput.value="";
+  clearAttachedFile();
   loadFeed();
 }
 
@@ -703,10 +791,18 @@ async function like(id, event){
 
 function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
   currentActiveNoteId = id;
+  currentCommentsStringState = "";
   noteModal.style.display = "flex";
   modalAuthor.innerText = `${userAvatar} ${displayedAuthorName}'s Post`;
   modalPostText.innerText = noteObj.text;
   
+  let mediaArea = document.getElementById("modalAttachmentArea");
+  if(noteObj.attachment) {
+    mediaArea.innerHTML = `<img src="${noteObj.attachment}" class="attached-media" alt="post attachment file preview">`;
+  } else {
+    mediaArea.innerHTML = "";
+  }
+
   modalCommentSubmitBtn.onclick = () => addModalComment(id);
   syncModalDetails(id);
 }
@@ -727,6 +823,10 @@ async function syncModalDetails(id) {
   let commentsCount = note.comments ? Object.keys(note.comments).length : 0;
 
   modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 💬 ${commentsCount} Comments`;
+
+  let newCommentsString = JSON.stringify(note.comments || {});
+  if(newCommentsString === currentCommentsStringState) return; 
+  currentCommentsStringState = newCommentsString;
 
   let container = document.getElementById("modalCommentsContainer");
   container.innerHTML = "";
@@ -801,13 +901,18 @@ async function loadFeed(){
       ? `<button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>` 
       : "";
 
+    let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
+
     div.innerHTML=`
       ${deleteButtonMarkup}
       <div class="note-header">
         <span class="avatar">${user.avatar||"😀"}</span>
-        <b>${authorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${n.owner}</span>
+        <div>
+          <b>${authorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${n.owner}</span>
+        </div>
       </div>
       <div class="note-text">${n.text}</div>
+      ${mediaMarkup}
       <div class="note-meta">
         <span>❤️ ${likesCount} Likes</span>
         <span>💬 ${commentsCount} Comments</span>
@@ -884,6 +989,7 @@ async function loadChatFriends(){
 async function openChat(user){
   currentChatUser=user;
   chatBox.style.display="flex";
+  document.getElementById('gifDrawerBox').style.display = 'none';
   
   let targetUserRes = await fetch(DB_URL+`/users/${user}.json`);
   let targetUserData = await targetUserRes.json() || {};
@@ -898,6 +1004,38 @@ function closeChat() {
   chatBox.style.display="none";
   currentChatUser=null;
   lastChatData = "";
+}
+
+// INLINE GIF SELECTION COMPONENT DRAWER
+function buildGifDrawerGrid() {
+  const grid = document.getElementById("gifSelectionGrid");
+  grid.innerHTML = "";
+  CHAT_GIF_COLLECTION.forEach(url => {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "trending selection item loop";
+    img.onclick = () => sendGifMessage(url);
+    grid.appendChild(img);
+  });
+}
+
+function toggleGifDrawer() {
+  const drawer = document.getElementById('gifDrawerBox');
+  drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+}
+
+async function sendGifMessage(gifUrl) {
+  let id = Date.now();
+  let cid = chatId(currentUser, currentChatUser);
+  let text = `[GIF] ${gifUrl}`;
+
+  await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
+    method: "PUT",
+    body: JSON.stringify({ text, sender: currentUser, seen: false })
+  });
+
+  document.getElementById('gifDrawerBox').style.display = 'none';
+  loadMessages();
 }
 
 async function sendMessage(){
@@ -968,7 +1106,14 @@ async function loadMessages(){
 
       let div=document.createElement("div");
       div.className="msg";
-      div.textContent = m.text;
+
+      // Structural translation validation for processing images/gifs
+      if(m.text.startsWith("[GIF] ")) {
+        let cleanUrl = m.text.replace("[GIF] ", "");
+        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation loop</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
+      } else {
+        div.textContent = m.text;
+      }
 
       if(m.sender===currentUser && m.seen) {
         let seenEye = document.createElement("span");
