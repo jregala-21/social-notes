@@ -398,6 +398,122 @@ footer {
 .profile-empty {
   color: var(--text-secondary); font-style: italic; padding: 16px 0; text-align: center;
 }
+.profile-tool-actions,
+.profile-create-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.profile-create-actions {
+  margin-bottom: 0;
+}
+.profile-create-actions + .create-note-form {
+  margin-top: 12px;
+}
+
+.folder-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.folder-card-header h4 { margin: 0; }
+.folder-form {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 12px 0;
+}
+.folder-form-actions,
+.folder-actions,
+.folder-picker-actions,
+.folder-active-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.folder-row {
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.folder-info {
+  min-width: 0;
+  flex: 1;
+}
+.folder-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.folder-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.folder-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 12px 0;
+}
+.folder-active-panel {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+.folder-active-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.folder-mini-note {
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.folder-mini-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.folder-mini-text {
+  color: var(--text-primary);
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.folder-picker-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.folder-picker-row {
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hidden { display: none !important; }
+
 
 /* COMPACT FEED CONTROLS */
 .feed-quick-actions {
@@ -542,14 +658,6 @@ footer {
 
   <div id="app" style="display:none;">
     
-    <div class="card profile-bar">
-      <div class="user-info">
-        <span id="avatar" class="avatar">😀</span>
-        <b id="userDisplay"></b>
-      </div>
-      <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
-    </div>
-
     <div id="view-feed" class="view-panel active">
       <div class="feed-quick-actions">
         <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make Post</button>
@@ -646,8 +754,19 @@ footer {
     </div>
 
     <div id="view-profile" class="view-panel">
+      <div class="card profile-bar">
+        <div class="user-info">
+          <span id="avatar" class="avatar">😀</span>
+          <b id="userDisplay"></b>
+        </div>
+        <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
+      </div>
+
       <div class="card create-note-card">
-        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make Post</button>
+        <div class="profile-create-actions">
+          <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make Post</button>
+          <button class="small-action-btn" onclick="toggleFoldersPanel()">📁 Folders</button>
+        </div>
         <div id="profileCreateNoteForm" class="create-note-form hidden">
           <h4>Create a Note</h4>
           <input id="profileNoteTitleInput" placeholder="Title">
@@ -675,6 +794,31 @@ footer {
         </div>
       </div>
       
+      <div id="foldersPanel" class="card folder-card hidden">
+        <div class="folder-card-header">
+          <h4>Folders</h4>
+          <div class="folder-actions">
+            <button class="small-action-btn" onclick="toggleFolderCreateForm()">➕ Create</button>
+            <button class="secondary small-action-btn" onclick="toggleFoldersPanel(false)">Close</button>
+          </div>
+        </div>
+        <div id="folderCreateForm" class="folder-form hidden">
+          <input id="folderNameInput" placeholder="Folder name...">
+          <div class="folder-form-actions">
+            <button class="secondary small-action-btn" onclick="toggleFolderCreateForm(false)">Cancel</button>
+            <button class="small-action-btn" onclick="createFolder()">Create</button>
+          </div>
+        </div>
+        <div id="foldersList"></div>
+        <div id="activeFolderPanel" class="folder-active-panel hidden">
+          <div class="folder-active-title" id="activeFolderTitle"></div>
+          <div class="folder-active-actions" style="margin-bottom:10px;">
+            <button class="secondary small-action-btn" onclick="closeActiveFolder()">Close Folder</button>
+          </div>
+          <div id="folderPosts"></div>
+        </div>
+      </div>
+      
       <div class="card">
         <h4>My Profile</h4>
         <div class="profile-summary">
@@ -688,7 +832,7 @@ footer {
           <span id="profilePostCount" style="font-size:12px; color:var(--text-secondary);">0 posts</span>
         </div>
         <div class="profile-tabs">
-          <button id="profilePublicTab" class="active" onclick="switchProfilePrivacy('public')">Public Notes</button>
+          <button id="profilePublicTab" onclick="switchProfilePrivacy('public')">Public Notes</button>
           <button id="profilePrivateTab" onclick="switchProfilePrivacy('private')">Private Notes</button>
         </div>
         <div id="profilePosts"></div>
@@ -784,6 +928,20 @@ footer {
       </div>
     </div>
 
+
+    <div class="modal-overlay" id="addToFolderModal" style="display:none;" onclick="closeAddToFolderModal()">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-close-header">
+          <h4>Add Post to Folder</h4>
+          <button class="secondary" style="padding:4px 10px;" onclick="closeAddToFolderModal()">✕</button>
+        </div>
+        <div style="color:var(--text-secondary); font-size:14px; margin-bottom:10px;">
+          Choose a folder where this post should be stored.
+        </div>
+        <div id="folderPickerList" class="folder-picker-list"></div>
+      </div>
+    </div>
+
     <footer>
       @regalawebstyle
     </footer>
@@ -825,9 +983,11 @@ let currentCommentsStringState = "";
 let currentAttachedFileBase64 = { feed: "", profile: "" };
 let feedLoadToken = 0;
 let feedFilterTimer = null;
-let profileActivePrivacy = "public";
+let profileActivePrivacy = "";
 let currentEditingNoteId = null;
 let currentSharingNoteId = null;
+let currentActiveFolderId = null;
+let currentFolderTargetNoteId = null;
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -1152,6 +1312,7 @@ async function sharePrivateNoteWithUser() {
   await refreshCollaboratorModal();
   loadFeed();
   loadProfilePosts();
+  loadFolders();
 }
 
 async function removeCollaborator(username) {
@@ -1300,7 +1461,7 @@ function switchView(viewId, btnToken) {
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
-  if(viewId === 'profile') loadProfilePosts();
+  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); }
 }
 
 function toggleFilterForm(forceShow = null) {
@@ -1851,6 +2012,14 @@ async function loadProfilePosts(){
   if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = userDisplay.innerText || currentUser;
   if (document.getElementById("profileUsername")) profileUsername.innerText = `@${currentUser}`;
 
+  if (!profileActivePrivacy) {
+    if (document.getElementById("profilePostCount")) {
+      profilePostCount.innerText = "Choose Public or Private";
+    }
+    target.innerHTML = `<div class="profile-empty">Choose Public Notes or Private Notes to view your posts.</div>`;
+    return;
+  }
+
   let r = await fetch(DB_URL+"/notes.json");
   let notes = await r.json() || {};
   let ownNotes = Object.entries(notes).filter(([id, n]) => n.owner === currentUser && n.privacy === profileActivePrivacy);
@@ -1908,6 +2077,7 @@ async function loadProfilePosts(){
       <div class="note-actions">
         <button class="copy-btn" onclick="copyNotePost('${id}', event)">📋 Copy</button>
         <button class="secondary" onclick="openEditNoteModal('${id}', event)">✏️ Edit</button>
+        <button class="secondary" onclick="openAddToFolderModal('${id}', event)">📁 Folder</button>
         ${n.privacy === "private" ? `<button class="collab-btn" onclick="openCollaboratorModal('${id}', event)">👥 Collaborators</button>` : ""}
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
       </div>
@@ -1917,6 +2087,305 @@ async function loadProfilePosts(){
   }
 
   target.replaceChildren(nextProfilePosts);
+}
+
+
+function toggleFoldersPanel(forceOpen = null) {
+  const panel = document.getElementById("foldersPanel");
+  if (!panel) return;
+
+  const shouldOpen = forceOpen === null ? panel.classList.contains("hidden") : forceOpen;
+  panel.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) {
+    loadFolders();
+  } else {
+    toggleFolderCreateForm(false);
+    closeActiveFolder();
+  }
+}
+
+function toggleFolderCreateForm(forceOpen = null) {
+  const form = document.getElementById("folderCreateForm");
+  if (!form) return;
+
+  const shouldOpen = forceOpen === null ? form.classList.contains("hidden") : forceOpen;
+  form.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) {
+    const input = document.getElementById("folderNameInput");
+    if (input) setTimeout(() => input.focus(), 30);
+  }
+}
+
+async function createFolder() {
+  const input = document.getElementById("folderNameInput");
+  const name = input ? input.value.trim() : "";
+
+  if (!name) {
+    showCustomAlert("Please enter a folder name.", "Missing Folder Name");
+    return;
+  }
+
+  const id = Date.now();
+  await fetch(DB_URL+`/users/${currentUser}/folders/${id}.json`, {
+    method: "PUT",
+    body: JSON.stringify({ name, createdAt: id, notes: {} })
+  });
+
+  if (input) input.value = "";
+  toggleFolderCreateForm(false);
+  await loadFolders();
+  showCustomAlert(`Folder \"${name}\" has been created.`, "Folder Created");
+}
+
+async function loadFolders() {
+  if (!currentUser) return;
+
+  const list = document.getElementById("foldersList");
+  if (!list) return;
+
+  const r = await fetch(DB_URL+`/users/${currentUser}/folders.json`);
+  const folders = await r.json() || {};
+  const entries = Object.entries(folders).sort((a, b) => Number(b[0]) - Number(a[0]));
+
+  if (entries.length === 0) {
+    list.innerHTML = `<div class="folder-empty">No folders yet. Create one to organize your notes.</div>`;
+    closeActiveFolder();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const [folderId, folder] of entries) {
+    const noteCount = folder.notes ? Object.keys(folder.notes).length : 0;
+
+    const row = document.createElement("div");
+    row.className = "folder-row";
+
+    const info = document.createElement("div");
+    info.className = "folder-info";
+    const name = document.createElement("div");
+    name.className = "folder-name";
+    name.textContent = `📁 ${folder.name || "Untitled Folder"}`;
+    const count = document.createElement("div");
+    count.className = "folder-count";
+    count.textContent = `${noteCount} ${noteCount === 1 ? "note" : "notes"}`;
+    info.appendChild(name);
+    info.appendChild(count);
+
+    const actions = document.createElement("div");
+    actions.className = "folder-actions";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "secondary small-action-btn";
+    viewBtn.type = "button";
+    viewBtn.textContent = "Open";
+    viewBtn.onclick = () => openFolder(folderId);
+    actions.appendChild(viewBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "danger small-action-btn";
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.onclick = () => deleteFolder(folderId, folder.name || "Untitled Folder");
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(info);
+    row.appendChild(actions);
+    fragment.appendChild(row);
+  }
+
+  list.replaceChildren(fragment);
+
+  if (currentActiveFolderId) {
+    if (folders[currentActiveFolderId]) {
+      await loadFolderPosts(currentActiveFolderId);
+    } else {
+      closeActiveFolder();
+    }
+  }
+}
+
+function closeActiveFolder() {
+  currentActiveFolderId = null;
+  const panel = document.getElementById("activeFolderPanel");
+  const posts = document.getElementById("folderPosts");
+  if (panel) panel.classList.add("hidden");
+  if (posts) posts.innerHTML = "";
+}
+
+async function openFolder(folderId) {
+  currentActiveFolderId = folderId;
+  await loadFolderPosts(folderId);
+}
+
+async function loadFolderPosts(folderId) {
+  const panel = document.getElementById("activeFolderPanel");
+  const title = document.getElementById("activeFolderTitle");
+  const posts = document.getElementById("folderPosts");
+  if (!panel || !title || !posts) return;
+
+  const folderRes = await fetch(DB_URL+`/users/${currentUser}/folders/${folderId}.json`);
+  const folder = await folderRes.json();
+
+  if (!folder) {
+    closeActiveFolder();
+    return;
+  }
+
+  currentActiveFolderId = folderId;
+  panel.classList.remove("hidden");
+  title.textContent = `📁 ${folder.name || "Untitled Folder"}`;
+
+  const noteIds = Object.keys(folder.notes || {});
+  if (noteIds.length === 0) {
+    posts.innerHTML = `<div class="folder-empty">This folder is empty. Use the 📁 Folder button on your posts to add notes here.</div>`;
+    return;
+  }
+
+  const notesRes = await fetch(DB_URL+"/notes.json");
+  const notes = await notesRes.json() || {};
+  const userRes = await fetch(DB_URL+`/users/${currentUser}.json`);
+  const user = await userRes.json() || {};
+  const userAvatar = user.avatar || "😀";
+  const displayName = user.displayName || currentUser;
+
+  const fragment = document.createDocumentFragment();
+  let added = 0;
+
+  for (const noteId of noteIds.reverse()) {
+    const n = notes[noteId];
+    if (!n || n.owner !== currentUser) continue;
+
+    added++;
+    const noteBox = document.createElement("div");
+    noteBox.className = "folder-mini-note";
+    noteBox.onclick = () => openNoteModal(noteId, n, userAvatar, displayName);
+
+    const titleValue = n.title || "Untitled note";
+    const textValue = n.text || "";
+
+    noteBox.innerHTML = `
+      <div class="folder-mini-title">${escapeHTML(titleValue)}</div>
+      <div class="folder-mini-text">${escapeHTML(textValue)}</div>
+      <div class="note-meta" style="margin-top:8px; margin-bottom:8px;">
+        <span>${escapeHTML(n.privacy || "public")} note</span>
+      </div>
+      <div class="folder-active-actions">
+        <button class="copy-btn small-action-btn" onclick="copyNotePost('${noteId}', event)">📋 Copy</button>
+        <button class="secondary small-action-btn" onclick="openEditNoteModal('${noteId}', event)">✏️ Edit</button>
+        <button class="danger small-action-btn" onclick="removeNoteFromFolder('${folderId}', '${noteId}', event)">Remove</button>
+      </div>
+    `;
+
+    fragment.appendChild(noteBox);
+  }
+
+  if (added === 0) {
+    posts.innerHTML = `<div class="folder-empty">The notes in this folder are no longer available.</div>`;
+    return;
+  }
+
+  posts.replaceChildren(fragment);
+}
+
+async function deleteFolder(folderId, folderName) {
+  showCustomConfirm(`Delete the folder \"${folderName}\"? Notes inside it will not be deleted.`, async () => {
+    await fetch(DB_URL+`/users/${currentUser}/folders/${folderId}.json`, { method: "DELETE" });
+    if (currentActiveFolderId === folderId) closeActiveFolder();
+    await loadFolders();
+  }, "Delete Folder");
+}
+
+async function openAddToFolderModal(noteId, event) {
+  if (event) event.stopPropagation();
+
+  const noteRes = await fetch(DB_URL+`/notes/${noteId}.json`);
+  const note = await noteRes.json();
+
+  if (!note) {
+    showCustomAlert("This note no longer exists.", "Folder Failed");
+    return;
+  }
+
+  if (note.owner !== currentUser) {
+    showCustomAlert("You can only organize your own posts into folders.", "Folder Not Allowed");
+    return;
+  }
+
+  currentFolderTargetNoteId = noteId;
+  const modal = document.getElementById("addToFolderModal");
+  if (modal) modal.style.display = "flex";
+  await refreshFolderPicker();
+}
+
+function closeAddToFolderModal() {
+  const modal = document.getElementById("addToFolderModal");
+  if (modal) modal.style.display = "none";
+  currentFolderTargetNoteId = null;
+}
+
+async function refreshFolderPicker() {
+  const list = document.getElementById("folderPickerList");
+  if (!list) return;
+
+  const r = await fetch(DB_URL+`/users/${currentUser}/folders.json`);
+  const folders = await r.json() || {};
+  const entries = Object.entries(folders).sort((a, b) => Number(b[0]) - Number(a[0]));
+
+  if (entries.length === 0) {
+    list.innerHTML = `<div class="folder-empty">No folders yet. Create a folder first in your Profile tab.</div>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const [folderId, folder] of entries) {
+    const alreadyAdded = !!(folder.notes && currentFolderTargetNoteId && folder.notes[currentFolderTargetNoteId]);
+    const row = document.createElement("div");
+    row.className = "folder-picker-row";
+
+    const info = document.createElement("div");
+    info.className = "folder-info";
+    info.innerHTML = `<div class="folder-name">📁 ${escapeHTML(folder.name || "Untitled Folder")}</div><div class="folder-count">${alreadyAdded ? "Already added" : "Ready to add"}</div>`;
+
+    const action = document.createElement("button");
+    action.className = alreadyAdded ? "secondary small-action-btn" : "small-action-btn";
+    action.type = "button";
+    action.textContent = alreadyAdded ? "Added" : "Add";
+    action.disabled = alreadyAdded;
+    action.onclick = () => addNoteToFolder(folderId);
+
+    row.appendChild(info);
+    row.appendChild(action);
+    fragment.appendChild(row);
+  }
+
+  list.replaceChildren(fragment);
+}
+
+async function addNoteToFolder(folderId) {
+  if (!currentFolderTargetNoteId) return;
+
+  await fetch(DB_URL+`/users/${currentUser}/folders/${folderId}/notes/${currentFolderTargetNoteId}.json`, {
+    method: "PUT",
+    body: "true"
+  });
+
+  const addedNoteId = currentFolderTargetNoteId;
+  closeAddToFolderModal();
+  await loadFolders();
+  if (currentActiveFolderId === folderId) await loadFolderPosts(folderId);
+  showCustomAlert("This post has been added to the folder.", "Added to Folder");
+}
+
+async function removeNoteFromFolder(folderId, noteId, event) {
+  if (event) event.stopPropagation();
+
+  await fetch(DB_URL+`/users/${currentUser}/folders/${folderId}/notes/${noteId}.json`, { method: "DELETE" });
+  await loadFolders();
+  if (currentActiveFolderId === folderId) await loadFolderPosts(folderId);
 }
 
 function scheduleFeedFilter(){
@@ -2226,6 +2695,7 @@ setInterval(async()=>{
   }
   if(document.getElementById('view-profile').classList.contains('active')) {
     loadProfilePosts();
+    loadFolders();
   }
 
 },2000);
