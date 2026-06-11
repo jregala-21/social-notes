@@ -16,6 +16,8 @@
   --border-color: #e4e6eb;
   --danger: #e41e3f;
   --danger-hover: #c91a37;
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.10);
+  --nav-bg: rgba(255, 255, 255, 0.92);
   --msg-me: #1877f2;
   --msg-them: #e4e6eb;
   --msg-me-text: #ffffff;
@@ -32,6 +34,8 @@
   --border-color: #3e4042;
   --danger: #f35369;
   --danger-hover: #f57387;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --nav-bg: rgba(36, 37, 38, 0.92);
   --msg-me: #2e89ff;
   --msg-them: #3a3b3c;
   --msg-me-text: #ffffff;
@@ -39,7 +43,26 @@
 }
 
 * { box-sizing: border-box; transition: background-color 0.2s, border-color 0.2s; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-primary); color: var(--text-primary); margin: 0; padding-bottom: 120px; }
+html {
+  min-height: 100%;
+  background: var(--bg-primary);
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  margin: 0;
+  min-height: 100vh;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-tap-highlight-color: transparent;
+}
 
 header { 
   background: var(--bg-card); 
@@ -72,7 +95,8 @@ header h1 { font-size: 1.2rem; margin: 0; color: var(--accent); }
   padding: 16px;
   margin-bottom: 16px;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-soft);
+  animation: cardEnter 0.32s ease both;
   overflow: hidden;
 }
 
@@ -121,6 +145,28 @@ footer {
   padding: 10px 0 20px 0;
 }
 
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes softPop {
+  0% { transform: scale(0.96); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes navItemPop {
+  0% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(-4px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes slideUpSheet {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
 /* AUTH */
 #auth { max-width: 400px; margin: 60px auto; padding: 24px; text-align: center; }
 #auth input { margin-bottom: 12px; }
@@ -128,6 +174,7 @@ footer {
 #auth .actions button { flex: 1; }
 
 /* APP VIEWS INTERFACE & TAB ANIMATIONS */
+#app { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 .view-panel { display: none; }
 @keyframes fadeInSlide {
   0% { opacity: 0; transform: translateY(15px); }
@@ -140,19 +187,69 @@ footer {
 
 /* NAVIGATION BAR */
 .nav-tabs {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--bg-card); border-top: 1px solid var(--border-color);
-  display: flex; justify-content: space-around; padding: 8px 0; z-index: 100;
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  transform: translateX(-50%) translateZ(0);
+  width: 100%;
+  max-width: 500px;
+  background: var(--nav-bg);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  box-shadow: 0 -8px 28px rgba(0,0,0,0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+  will-change: transform;
+  contain: layout paint;
 }
 .tab-item {
-  background: none; border: none; color: var(--text-secondary);
-  display: flex; flex-direction: column; align-items: center;
-  font-size: 11px; font-weight: normal; padding: 6px; cursor: pointer; gap: 4px;
+  position: relative;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 6px;
+  cursor: pointer;
+  gap: 4px;
+  min-width: 0;
+  border-radius: 14px;
+  overflow: hidden;
 }
-.tab-item:hover { background: none; color: var(--accent); }
-.tab-item.active { color: var(--accent); font-weight: bold; }
-.tab-item:active { transform: scale(0.9); }
-.tab-icon { font-size: 20px; }
+.tab-item::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 12px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  z-index: -1;
+}
+.tab-item:hover { background: transparent; color: var(--accent); }
+.tab-item.active {
+  color: #ffffff;
+  font-weight: 800;
+  animation: navItemPop 0.28s ease;
+}
+.tab-item.active::before {
+  opacity: 1;
+  transform: scale(1);
+}
+.tab-item:active { transform: scale(0.92); }
+.tab-icon { font-size: 20px; line-height: 1; }
 
 /* ROW FORMATS & PROFILE */
 .row { display: flex; align-items: center; gap: 10px; }
@@ -239,6 +336,7 @@ footer {
   border-top-left-radius: 16px; border-top-right-radius: 16px;
   padding: 20px; max-height: 85vh; display: flex; flex-direction: column;
   box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+  animation: slideUpSheet 0.24s ease both;
 }
 @media(min-width: 501px) {
   .modal-content { border-radius: 16px; max-height: 75vh; }
@@ -317,14 +415,52 @@ footer {
 /* MESSENGER & CHAT WINDOW */
 .chat-user-item {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px; border-radius: 8px; margin-bottom: 6px; cursor: pointer;
+  padding: 12px; border-radius: 12px; margin-bottom: 8px; cursor: pointer;
   background: var(--bg-primary);
+  transition: transform 0.16s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
-.chat-user-item:hover { background: var(--border-color); }
+.chat-user-item:hover {
+  background: var(--border-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+.chat-user-item:active { transform: scale(0.98); }
+.chat-user-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-user-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-user-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.chat-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.conversation-delete-btn {
+  background: transparent;
+  color: var(--danger);
+  padding: 7px 9px;
+  border-radius: 999px;
+}
+.conversation-delete-btn:hover {
+  background: rgba(228, 30, 63, 0.12);
+  color: var(--danger);
+}
 
 #chatBox {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--bg-card); z-index: 150; margin: 0;
+  background: var(--bg-card); z-index: 1500; margin: 0;
   display: flex; flex-direction: column; border-radius: 0;
 }
 .chat-header {
@@ -631,6 +767,55 @@ footer {
   justify-content: flex-start;
   margin-top: 10px;
 }
+
+@media (min-width: 501px) {
+  body {
+    overscroll-behavior-y: auto;
+  }
+
+  .nav-tabs {
+    position: fixed;
+  }
+}
+
+@media (max-width: 500px) {
+  html, body {
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  header {
+    transform: translateZ(0);
+  }
+
+  .container {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav-tabs {
+    max-width: none;
+    border-left: none;
+    border-right: none;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .msg-del-btn {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 </style>
 </head>
 
@@ -843,7 +1028,7 @@ footer {
       <div class="chat-header">
         <button class="secondary" onclick="closeChat()">← Back</button>
         <h4 id="chatWith">Chat</h4>
-        <div style="width: 60px;"></div>
+        <button class="danger conversation-delete-btn" onclick="deleteCurrentConversation(event)" title="Delete full conversation">🗑️</button>
       </div>
       <div id="typingStatus" class="typing"></div>
       <div id="messages"></div>
@@ -1456,7 +1641,8 @@ function switchView(viewId, btnToken) {
   document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
   
   document.getElementById(`view-${viewId}`).classList.add('active');
-  btnToken.classList.add('active');
+  if (btnToken) btnToken.classList.add('active');
+  window.scrollTo({ top: 0, behavior: "smooth" });
   
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
@@ -2426,30 +2612,84 @@ async function loadChatFriends(){
       div.id = `chatuser-${x}`;
       div.onclick = () => openChat(x);
 
+      let main = document.createElement("div");
+      main.className = "chat-user-main";
+
       let nameSpan = document.createElement("span");
-      nameSpan.style.fontWeight = "600";
-      nameSpan.className = "username-label";
+      nameSpan.className = "chat-user-name username-label";
       nameSpan.innerText = friendDisplayName;
+
+      let subtitle = document.createElement("span");
+      subtitle.className = "chat-user-subtitle";
+      subtitle.innerText = `@${x}`;
 
       let dot = document.createElement("span");
       dot.className = "online";
       dot.style.display = u.online ? "inline" : "none";
       dot.innerText = " ● Online";
-      nameSpan.appendChild(dot);
+      subtitle.appendChild(dot);
+
+      main.appendChild(nameSpan);
+      main.appendChild(subtitle);
+
+      let actionGroup = document.createElement("div");
+      actionGroup.className = "chat-user-actions";
+
+      let deleteBtn = document.createElement("button");
+      deleteBtn.className = "conversation-delete-btn";
+      deleteBtn.type = "button";
+      deleteBtn.title = "Delete full conversation";
+      deleteBtn.innerHTML = "🗑️";
+      deleteBtn.onclick = (event) => deleteConversation(x, event);
 
       let actionIndicator = document.createElement("span");
       actionIndicator.innerText = "💬";
 
-      div.appendChild(nameSpan);
-      div.appendChild(actionIndicator);
+      actionGroup.appendChild(deleteBtn);
+      actionGroup.appendChild(actionIndicator);
+
+      div.appendChild(main);
+      div.appendChild(actionGroup);
       chatFriends.appendChild(div);
     } else {
+      let nameLabel = existingRow.querySelector(".username-label");
+      if (nameLabel) nameLabel.innerText = friendDisplayName;
+
       let dot = existingRow.querySelector(".online");
       if (dot) {
         dot.style.display = u.online ? "inline" : "none";
       }
     }
   }
+}
+
+
+async function deleteConversation(user, event) {
+  if (event) event.stopPropagation();
+
+  const cid = chatId(currentUser, user);
+  const userRes = await fetch(DB_URL+`/users/${user}.json`);
+  const userData = await userRes.json() || {};
+  const displayName = userData.displayName || user;
+
+  showCustomConfirm(`Delete your full conversation with ${displayName}? This removes all messages in this chat.`, async () => {
+    await fetch(DB_URL+`/chats/${cid}.json`, { method: "DELETE" });
+
+    if (currentChatUser === user) {
+      closeChat();
+    }
+
+    const row = document.getElementById(`chatuser-${user}`);
+    if (row) row.remove();
+
+    await loadChatFriends();
+    showCustomAlert("The full conversation has been deleted.", "Conversation Deleted");
+  }, "Delete Conversation");
+}
+
+function deleteCurrentConversation(event) {
+  if (!currentChatUser) return;
+  deleteConversation(currentChatUser, event);
 }
 
 async function openChat(user){
