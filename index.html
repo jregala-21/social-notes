@@ -73,16 +73,28 @@ header h1 { font-size: 1.2rem; margin: 0; color: var(--accent); }
   margin-bottom: 16px;
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  overflow: hidden;
 }
 
 h4 { margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary); }
 
 input, textarea, select {
-  width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 8px;
+  width: 100%; max-width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 8px;
   border-radius: 8px; border: 1px solid var(--border-color);
   background: var(--bg-primary); color: var(--text-primary);
   font-size: 14px; outline: none;
 }
+textarea {
+  display: block;
+  resize: vertical;
+  min-height: 44px;
+  max-height: 180px;
+  overflow-y: auto;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#noteInput { min-height: 88px; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
 /* Universal Button Styles & Animations */
@@ -159,8 +171,16 @@ footer {
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 .note-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; width: 100%; }
-.note-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); word-break: break-word; }
-.note-text { font-size: 15px; line-height: 1.4; margin-bottom: 10px; }
+.note-title {
+  font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.note-text {
+  font-size: 15px; line-height: 1.4; margin-bottom: 10px; white-space: pre-wrap;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+  overflow-wrap: anywhere; word-break: break-word;
+}
 .note-meta { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; display: flex; gap: 12px; }
 .note-actions { display: flex; gap: 8px; }
 .note-actions button { padding: 8px 14px; font-size: 13px; }
@@ -247,12 +267,26 @@ footer {
 .global-modal-actions { display: flex; gap: 10px; justify-content: center; }
 .global-modal-actions button { flex: 1; padding: 12px; }
 
-/* COMMENTS DISPLAY */
+/* NOTES/COMMENTS DISPLAY */
 .comment-box {
   background: var(--bg-primary); padding: 10px 12px; border-radius: 12px;
   margin-bottom: 8px; font-size: 14px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+}
+.comment-content {
+  flex: 1; min-width: 0; white-space: pre-wrap;
+  overflow-wrap: anywhere; word-break: break-word;
 }
 .comment-user { font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: var(--accent); }
+.comment-delete-btn {
+  flex-shrink: 0; background: transparent; color: var(--danger); padding: 4px 6px;
+  font-size: 14px; border-radius: 6px; opacity: 0.85;
+}
+.comment-delete-btn:hover { background: rgba(228, 30, 63, 0.12); color: var(--danger); opacity: 1; }
+.modal-note-input-area {
+  display:flex; gap:8px; border-top:1px solid var(--border-color); padding-top:10px; align-items:flex-end;
+}
+#modalCommentInput { margin:0; resize: vertical; min-height: 44px; max-height: 120px; }
 
 /* MESSENGER & CHAT WINDOW */
 .chat-user-item {
@@ -302,10 +336,11 @@ footer {
 
 .chat-input-area {
   padding: 12px; border-top: 1px solid var(--border-color);
-  display: flex; gap: 8px; align-items: center; background: var(--bg-card);
+  display: flex; gap: 8px; align-items: flex-end; background: var(--bg-card);
 }
-.chat-input-area input { margin: 0; flex: 1; }
-.chat-input-area button { height: 42px; }
+.chat-input-area input, .chat-input-area textarea { margin: 0; flex: 1; }
+.chat-input-area textarea { resize: none; min-height: 42px; max-height: 110px; }
+.chat-input-area button { height: 42px; flex-shrink: 0; }
 
 /* GIF DRAWER LAYOUT */
 .gif-drawer {
@@ -319,6 +354,40 @@ footer {
   width: 100%; height: 65px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform 0.1s;
 }
 .gif-grid img:hover { transform: scale(1.04); }
+
+/* PROFILE TAB */
+.profile-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+}
+.profile-tabs button {
+  background: var(--border-color); color: var(--text-primary); width: 100%;
+}
+.profile-tabs button.active {
+  background: var(--accent); color: #ffffff;
+}
+.profile-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px; background: var(--bg-primary); border-radius: 10px; margin-bottom: 14px;
+}
+.profile-empty {
+  color: var(--text-secondary); font-style: italic; padding: 16px 0; text-align: center;
+}
+
+/* COLLAPSIBLE CREATE NOTE */
+.create-note-toggle-btn {
+  width: 100%;
+}
+.create-note-form {
+  margin-top: 12px;
+}
+.create-note-form.hidden {
+  display: none;
+}
+.create-note-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
 
 .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .filter-grid input { margin-top: 0; margin-bottom: 0; }
@@ -358,25 +427,31 @@ footer {
     </div>
 
     <div id="view-feed" class="view-panel active">
-      <div class="card">
-        <h4>Create a Note</h4>
-        <input id="noteTitleInput" placeholder="Title">
-        <textarea id="noteInput" placeholder="What's on your mind?" rows="3"></textarea>
-        
-        <div class="file-input-wrapper">
-          <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
-          <input type="file" id="noteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event)" style="margin: 4px 0; font-size: 13px; padding: 6px;">
-          <div class="file-preview-container" id="filePreviewBox">
-            <img id="filePreviewImg" src="" alt="preview">
-            <button class="file-preview-remove" onclick="clearAttachedFile(event)">✕</button>
+      <div class="card create-note-card">
+        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('feed')">➕ Make a Post Note</button>
+        <div id="feedCreateNoteForm" class="create-note-form hidden">
+          <h4>Create a Note</h4>
+          <input id="noteTitleInput" placeholder="Title">
+          <textarea id="noteInput" placeholder="What's on your mind?" rows="3" oninput="autoResizeTextarea(this)"></textarea>
+          
+          <div class="file-input-wrapper">
+            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
+            <input type="file" id="noteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event, 'feed')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
+            <div class="file-preview-container" id="filePreviewBox">
+              <img id="filePreviewImg" src="" alt="preview">
+              <button class="file-preview-remove" onclick="clearAttachedFile(event, 'feed')">✕</button>
+            </div>
+          </div>
+
+          <div class="privacy-selectors">
+            <label><input type="radio" name="feedPrivacy" value="public" checked> Public</label>
+            <label><input type="radio" name="feedPrivacy" value="private"> Private</label>
+          </div>
+          <div class="create-note-form-actions">
+            <button class="secondary" onclick="toggleCreateNoteForm('feed', false)">Cancel</button>
+            <button onclick="addNote('feed')">Post Content</button>
           </div>
         </div>
-
-        <div class="privacy-selectors">
-          <label><input type="radio" name="privacy" value="public" checked> Public</label>
-          <label><input type="radio" name="privacy" value="private"> Private</label>
-        </div>
-        <button style="width: 100%;" onclick="addNote()">Post Content</button>
       </div>
 
       <div class="card">
@@ -434,6 +509,54 @@ footer {
       </div>
     </div>
 
+    <div id="view-profile" class="view-panel">
+      <div class="card create-note-card">
+        <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make a Post Note</button>
+        <div id="profileCreateNoteForm" class="create-note-form hidden">
+          <h4>Create a Note</h4>
+          <input id="profileNoteTitleInput" placeholder="Title">
+          <textarea id="profileNoteInput" placeholder="What's on your mind?" rows="3" oninput="autoResizeTextarea(this)"></textarea>
+          
+          <div class="file-input-wrapper">
+            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
+            <input type="file" id="profileNoteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event, 'profile')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
+            <div class="file-preview-container" id="profileFilePreviewBox">
+              <img id="profileFilePreviewImg" src="" alt="preview">
+              <button class="file-preview-remove" onclick="clearAttachedFile(event, 'profile')">✕</button>
+            </div>
+          </div>
+
+          <div class="privacy-selectors">
+            <label><input type="radio" name="profilePrivacy" value="public" checked> Public</label>
+            <label><input type="radio" name="profilePrivacy" value="private"> Private</label>
+          </div>
+          <div class="create-note-form-actions">
+            <button class="secondary" onclick="toggleCreateNoteForm('profile', false)">Cancel</button>
+            <button onclick="addNote('profile')">Post Content</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h4>My Profile</h4>
+        <div class="profile-summary">
+          <div class="user-info">
+            <span id="profileAvatar" class="avatar">😀</span>
+            <div>
+              <b id="profileDisplayName"></b><br>
+              <span id="profileUsername" style="font-size:12px; color:var(--text-secondary);"></span>
+            </div>
+          </div>
+          <span id="profilePostCount" style="font-size:12px; color:var(--text-secondary);">0 posts</span>
+        </div>
+        <div class="profile-tabs">
+          <button id="profilePublicTab" class="active" onclick="switchProfilePrivacy('public')">Public Notes</button>
+          <button id="profilePrivateTab" onclick="switchProfilePrivacy('private')">Private Notes</button>
+        </div>
+        <div id="profilePosts"></div>
+      </div>
+    </div>
+
     <div class="card" id="chatBox" style="display:none;">
       <div class="chat-header">
         <button class="secondary" onclick="closeChat()">← Back</button>
@@ -450,7 +573,7 @@ footer {
 
       <div class="chat-input-area">
         <button class="secondary" onclick="toggleGifDrawer()" style="height: 42px; padding: 0 12px;" title="Choose GIF">🎬</button>
-        <input id="chatInput" placeholder="Type message..." oninput="typing()">
+        <textarea id="chatInput" placeholder="Type message..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
@@ -467,12 +590,12 @@ footer {
           <p id="modalPostText" style="font-size:16px; line-height:1.4; margin-top:0; white-space:pre-wrap;"></p>
           <div id="modalPostMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;"></div>
           <hr style="border:0; border-top:1px solid var(--border-color); margin-bottom:15px;">
-          <h5>Comments</h5>
+          <h5>Notes</h5>
           <div id="modalCommentsContainer"></div>
         </div>
-        <div style="display:flex; gap:8px; border-top:1px solid var(--border-color); padding-top:10px;">
-          <input id="modalCommentInput" placeholder="Write a comment..." style="margin:0;">
-          <button id="modalCommentSubmitBtn">Reply</button>
+        <div class="modal-note-input-area">
+          <textarea id="modalCommentInput" placeholder="Add new notes..." rows="2"></textarea>
+          <button id="modalCommentSubmitBtn">Add Note</button>
         </div>
       </div>
     </div>
@@ -490,6 +613,9 @@ footer {
       </button>
       <button class="tab-item" onclick="switchView('messages', this)">
         <span class="tab-icon">💬</span><span>Chats</span>
+      </button>
+      <button class="tab-item" onclick="switchView('profile', this)">
+        <span class="tab-icon">👤</span><span>Profile</span>
       </button>
     </nav>
 
@@ -512,9 +638,10 @@ let currentChatUser=null, lastChatData="";
 let typingTimeout;
 let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
-let currentAttachedFileBase64 = "";
+let currentAttachedFileBase64 = { feed: "", profile: "" };
 let feedLoadToken = 0;
 let feedFilterTimer = null;
+let profileActivePrivacy = "public";
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -527,6 +654,66 @@ const CHAT_GIF_COLLECTION = [
   "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnAydnJzdDhrMmJpZHJidmdtcDN5NXgzYXRka3AxdTFqbnZhcW9ubyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9oNGCw56GoJQA66Zs/giphy.gif",
   "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmZud2V1ODJmZnV3a3d5eGF6azVhcTJ5dzV5d2w4NXZkMmsxeDVrMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5ntdy5qmgfRJTWNYzV/giphy.gif"
 ];
+
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  const maxHeight = Number.parseInt(getComputedStyle(el).maxHeight, 10) || 180;
+  el.style.height = Math.min(el.scrollHeight, maxHeight) + "px";
+}
+
+function setupAutoResizeTextareas() {
+  ["noteInput", "profileNoteInput", "chatInput", "modalCommentInput"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) autoResizeTextarea(el);
+  });
+}
+
+function toggleCreateNoteForm(source = "feed", forceOpen = null) {
+  const formId = source === "profile" ? "profileCreateNoteForm" : "feedCreateNoteForm";
+  const form = document.getElementById(formId);
+  if (!form) return;
+
+  const shouldOpen = forceOpen === null ? form.classList.contains("hidden") : forceOpen;
+  form.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) {
+    const titleInput = document.getElementById(source === "profile" ? "profileNoteTitleInput" : "noteTitleInput");
+    if (titleInput) titleInput.focus();
+  }
+}
+
+function getCreateNoteFields(source = "feed") {
+  if (source === "profile") {
+    return {
+      titleInput: document.getElementById("profileNoteTitleInput"),
+      textInput: document.getElementById("profileNoteInput"),
+      privacySelector: 'input[name="profilePrivacy"]:checked',
+      fileInput: document.getElementById("profileNoteFileElement"),
+      previewBox: document.getElementById("profileFilePreviewBox"),
+      previewImg: document.getElementById("profileFilePreviewImg")
+    };
+  }
+
+  return {
+    titleInput: document.getElementById("noteTitleInput"),
+    textInput: document.getElementById("noteInput"),
+    privacySelector: 'input[name="feedPrivacy"]:checked',
+    fileInput: document.getElementById("noteFileElement"),
+    previewBox: document.getElementById("filePreviewBox"),
+    previewImg: document.getElementById("filePreviewImg")
+  };
+}
+
 
 // --- CUSTOM MODAL HANDLERS ---
 function showCustomAlert(msg, title = "Notification", onCloseCallback = null) {
@@ -624,35 +811,37 @@ function switchView(viewId, btnToken) {
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
+  if(viewId === 'profile') loadProfilePosts();
 }
 
 // FILE PROCESSING AND ENFORCEMENT RULES
-function previewAttachedFile(event) {
+function previewAttachedFile(event, source = "feed") {
   const file = event.target.files[0];
   if (!file) return;
 
-  // Strict Protection Check: Block PDFs explicitly
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
     showCustomAlert("PDF files are not acceptable! Please upload an image file instead.", "Invalid File Type");
-    clearAttachedFile();
+    clearAttachedFile(null, source);
     return;
   }
 
+  const fields = getCreateNoteFields(source);
   const reader = new FileReader();
   reader.onload = function(e) {
-    currentAttachedFileBase64 = e.target.result;
-    document.getElementById('filePreviewImg').src = currentAttachedFileBase64;
-    document.getElementById('filePreviewBox').style.display = 'block';
+    currentAttachedFileBase64[source] = e.target.result;
+    if (fields.previewImg) fields.previewImg.src = currentAttachedFileBase64[source];
+    if (fields.previewBox) fields.previewBox.style.display = "block";
   };
   reader.readAsDataURL(file);
 }
 
-function clearAttachedFile(event) {
+function clearAttachedFile(event, source = "feed") {
   if(event) event.preventDefault();
-  currentAttachedFileBase64 = "";
-  document.getElementById('noteFileElement').value = "";
-  document.getElementById('filePreviewBox').style.display = 'none';
-  document.getElementById('filePreviewImg').src = "";
+  const fields = getCreateNoteFields(source);
+  currentAttachedFileBase64[source] = "";
+  if (fields.fileInput) fields.fileInput.value = "";
+  if (fields.previewBox) fields.previewBox.style.display = "none";
+  if (fields.previewImg) fields.previewImg.src = "";
 }
 
 // AUTHENTICATION
@@ -694,6 +883,9 @@ async function login(){
     userDisplay.innerText=d.displayName||u;
     changeUsernameInput.value=d.displayName||u;
     avatar.innerText=d.avatar||"😀";
+    if (document.getElementById("profileAvatar")) profileAvatar.innerText = d.avatar || "😀";
+    if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = d.displayName || u;
+    if (document.getElementById("profileUsername")) profileUsername.innerText = `@${u}`;
 
     setOnline(true);
     loadAll();
@@ -715,6 +907,7 @@ async function changeAvatar(){
   await fetch(DB_URL+"/users/"+currentUser+".json",
     {method:"PATCH",body:JSON.stringify({avatar:a})});
   avatar.innerText=a;
+  if (document.getElementById("profileAvatar")) profileAvatar.innerText = a;
 }
 
 // USERNAME/DISPLAY-NAME HANDLER
@@ -728,6 +921,7 @@ async function updateProfileName() {
   });
   
   userDisplay.innerText = newName;
+  if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = newName;
   showCustomAlert("Your profile name has been updated successfully!", "Profile Updated");
   loadFeed();
 }
@@ -843,24 +1037,34 @@ async function unfriend(f){
 }
 
 // FEED LOGIC
-async function addNote(){
-  let title=noteTitleInput.value.trim();
-  let text=noteInput.value.trim();
-  let privacy=document.querySelector("input[name=privacy]:checked").value;
-  if(!title && !text && !currentAttachedFileBase64) return;
+async function addNote(source = "feed"){
+  const fields = getCreateNoteFields(source);
+  if (!fields.titleInput || !fields.textInput) return;
+
+  let title = fields.titleInput.value.trim();
+  let text = fields.textInput.value.trim();
+  let privacyInput = document.querySelector(fields.privacySelector);
+  let privacy = privacyInput ? privacyInput.value : "public";
+
+  if(!title && !text && !currentAttachedFileBase64[source]) return;
 
   let id=Date.now();
   let payload = { title, text, owner:currentUser, privacy };
 
-  if(currentAttachedFileBase64) {
-    payload.attachment = currentAttachedFileBase64;
+  if(currentAttachedFileBase64[source]) {
+    payload.attachment = currentAttachedFileBase64[source];
   }
 
   await fetch(DB_URL+"/notes/"+id+".json",{method:"PUT", body:JSON.stringify(payload)});
-  noteTitleInput.value="";
-  noteInput.value="";
-  clearAttachedFile();
+
+  fields.titleInput.value = "";
+  fields.textInput.value = "";
+  autoResizeTextarea(fields.textInput);
+  clearAttachedFile(null, source);
+  toggleCreateNoteForm(source, false);
+
   loadFeed();
+  loadProfilePosts();
 }
 
 async function deleteNote(id, event){
@@ -872,6 +1076,7 @@ async function deleteNote(id, event){
       closeNoteModal();
     }
     loadFeed();
+    loadProfilePosts();
   }, "Delete Post");
 }
 
@@ -894,6 +1099,7 @@ async function like(id, event){
   }
 
   loadFeed();
+  loadProfilePosts();
   if(currentActiveNoteId === id) {
     setTimeout(() => syncModalDetails(id), 100);
   }
@@ -934,7 +1140,7 @@ async function syncModalDetails(id) {
   let likesCount = note.likes ? Object.keys(note.likes).length : 0;
   let commentsCount = note.comments ? Object.keys(note.comments).length : 0;
 
-  modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 💬 ${commentsCount} Comments`;
+  modalPostMeta.innerHTML = `❤️ ${likesCount} Likes &nbsp;•&nbsp; 📝 ${commentsCount} Notes`;
 
   let newCommentsString = JSON.stringify(note.comments || {});
   if(newCommentsString === currentCommentsStringState) return; 
@@ -944,7 +1150,7 @@ async function syncModalDetails(id) {
   container.innerHTML = "";
 
   if(!note.comments) {
-    container.innerHTML = "<div style='color:var(--text-secondary); font-style:italic; padding:10px 0;'>No comments yet. Be the first to reply!</div>";
+    container.innerHTML = "<div style='color:var(--text-secondary); font-style:italic; padding:10px 0;'>No notes yet. Be the first to add one!</div>";
     return;
   }
 
@@ -955,9 +1161,45 @@ async function syncModalDetails(id) {
 
     let div = document.createElement("div");
     div.className = "comment-box";
-    div.innerHTML = `<span class="comment-user">@${displayCommenterName}</span> ${c.text}`;
+
+    let content = document.createElement("div");
+    content.className = "comment-content";
+
+    let userLabel = document.createElement("span");
+    userLabel.className = "comment-user";
+    userLabel.textContent = `@${displayCommenterName}`;
+
+    let textNode = document.createElement("div");
+    textNode.textContent = c.text || "";
+
+    content.appendChild(userLabel);
+    content.appendChild(textNode);
+    div.appendChild(content);
+
+    if (c.user === currentUser || note.owner === currentUser) {
+      let deleteBtn = document.createElement("button");
+      deleteBtn.className = "comment-delete-btn";
+      deleteBtn.type = "button";
+      deleteBtn.title = "Delete this note";
+      deleteBtn.innerHTML = "🗑️";
+      deleteBtn.onclick = (event) => deleteModalComment(id, cId, event);
+      div.appendChild(deleteBtn);
+    }
+
     container.appendChild(div);
   }
+}
+
+async function deleteModalComment(noteId, commentId, event) {
+  if (event) event.stopPropagation();
+
+  showCustomConfirm("Delete this note comment?", async () => {
+    await fetch(DB_URL+`/notes/${noteId}/comments/${commentId}.json`, { method: "DELETE" });
+    currentCommentsStringState = "";
+    await syncModalDetails(noteId);
+    loadFeed();
+    loadProfilePosts();
+  }, "Delete Note");
 }
 
 async function addModalComment(id) {
@@ -968,8 +1210,10 @@ async function addModalComment(id) {
     {method:"PUT",body:JSON.stringify({text:t,user:currentUser})});
   
   modalCommentInput.value = "";
+  autoResizeTextarea(modalCommentInput);
   syncModalDetails(id);
   loadFeed();
+  loadProfilePosts();
 }
 
 async function loadFeed(){
@@ -1018,27 +1262,31 @@ async function loadFeed(){
       ? `<button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>` 
       : "";
 
+    let safeAuthorDisplayName = escapeHTML(authorDisplayName);
+    let safeOwner = escapeHTML(n.owner);
+    let safeTitle = escapeHTML(n.title || "");
+    let safeText = escapeHTML(n.text || "");
+    let safeAvatar = escapeHTML(user.avatar || "😀");
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
-    let titleMarkup = n.title ? `<div class="note-title">${n.title}</div>` : "";
+    let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
 
     div.innerHTML=`
       ${deleteButtonMarkup}
       <div class="note-header">
-        <span class="avatar">${user.avatar||"😀"}</span>
+        <span class="avatar">${safeAvatar}</span>
         <div>
-          <b>${authorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${n.owner}</span>
+          <b>${safeAuthorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${safeOwner}</span>
         </div>
       </div>
       ${titleMarkup}
-      <div class="note-text">${n.text}</div>
+      <div class="note-text">${safeText}</div>
       ${mediaMarkup}
       <div class="note-meta">
         <span>❤️ ${likesCount} Likes</span>
-        <span>💬 ${commentsCount} Comments</span>
+        <span>📝 ${commentsCount} Notes</span>
       </div>
       <div class="note-actions">
         <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
-        <button class="secondary" onclick="event.stopPropagation(); openNoteModal('${id}', ${JSON.stringify(n).replace(/"/g, '&quot;')}, '${user.avatar || "😀"}', '${authorDisplayName}')">💬 Comment</button>
       </div>
     `;
 
@@ -1047,6 +1295,94 @@ async function loadFeed(){
 
   if(loadToken !== feedLoadToken) return;
   feed.replaceChildren(nextFeed);
+}
+
+
+function switchProfilePrivacy(privacy) {
+  profileActivePrivacy = privacy;
+
+  const publicTab = document.getElementById("profilePublicTab");
+  const privateTab = document.getElementById("profilePrivateTab");
+
+  if (publicTab) publicTab.classList.toggle("active", privacy === "public");
+  if (privateTab) privateTab.classList.toggle("active", privacy === "private");
+
+  loadProfilePosts();
+}
+
+async function loadProfilePosts(){
+  if(!currentUser) return;
+
+  const target = document.getElementById("profilePosts");
+  if(!target) return;
+
+  if (document.getElementById("profileAvatar")) profileAvatar.innerText = avatar.innerText || "😀";
+  if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = userDisplay.innerText || currentUser;
+  if (document.getElementById("profileUsername")) profileUsername.innerText = `@${currentUser}`;
+
+  let r = await fetch(DB_URL+"/notes.json");
+  let notes = await r.json() || {};
+  let ownNotes = Object.entries(notes).filter(([id, n]) => n.owner === currentUser && n.privacy === profileActivePrivacy);
+
+  if (document.getElementById("profilePostCount")) {
+    profilePostCount.innerText = `${ownNotes.length} ${profileActivePrivacy} ${ownNotes.length === 1 ? "post" : "posts"}`;
+  }
+
+  if(ownNotes.length === 0){
+    target.innerHTML = `<div class="profile-empty">No ${profileActivePrivacy} notes yet.</div>`;
+    return;
+  }
+
+  let userRes = await fetch(DB_URL+"/users/"+currentUser+".json");
+  let user = await userRes.json() || {};
+  let authorDisplayName = user.displayName || currentUser;
+  let userAvatar = user.avatar || "😀";
+
+  let nextProfilePosts = document.createDocumentFragment();
+
+  for(let [id, n] of ownNotes.reverse()){
+    let div = document.createElement("div");
+    div.className = "card note-item";
+    div.onclick = () => openNoteModal(id, n, userAvatar, authorDisplayName);
+
+    let likesCount = n.likes ? Object.keys(n.likes).length : 0;
+    let commentsCount = n.comments ? Object.keys(n.comments).length : 0;
+    let hasUserLiked = n.likes && n.likes[currentUser];
+
+    let safeAuthorDisplayName = escapeHTML(authorDisplayName);
+    let safeOwner = escapeHTML(n.owner);
+    let safeTitle = escapeHTML(n.title || "");
+    let safeText = escapeHTML(n.text || "");
+    let safeAvatar = escapeHTML(userAvatar);
+    let safePrivacy = escapeHTML(n.privacy || "public");
+    let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="profile media post item">` : "";
+    let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
+
+    div.innerHTML = `
+      <button class="post-del-btn" onclick="deleteNote('${id}', event)">🗑️</button>
+      <div class="note-header">
+        <span class="avatar">${safeAvatar}</span>
+        <div>
+          <b>${safeAuthorDisplayName}</b> <span style="font-size:12px; color:var(--text-secondary);">@${safeOwner}</span><br>
+          <span style="font-size:12px; color:var(--text-secondary); text-transform:capitalize;">${safePrivacy} note</span>
+        </div>
+      </div>
+      ${titleMarkup}
+      <div class="note-text">${safeText}</div>
+      ${mediaMarkup}
+      <div class="note-meta">
+        <span>❤️ ${likesCount} Likes</span>
+        <span>📝 ${commentsCount} Notes</span>
+      </div>
+      <div class="note-actions">
+        <button class="secondary ${hasUserLiked ? 'liked-active-anim' : ''}" onclick="like('${id}', event)">❤️ Like</button>
+      </div>
+    `;
+
+    nextProfilePosts.appendChild(div);
+  }
+
+  target.replaceChildren(nextProfilePosts);
 }
 
 function scheduleFeedFilter(){
@@ -1165,6 +1501,13 @@ async function sendGifMessage(gifUrl) {
   loadMessages();
 }
 
+function handleChatInputKeydown(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
+  }
+}
+
 async function sendMessage(){
   let text=chatInput.value.trim();
   if(!text) return;
@@ -1182,6 +1525,7 @@ async function sendMessage(){
   });
 
   chatInput.value="";
+  autoResizeTextarea(chatInput);
   loadMessages();
 }
 
@@ -1322,6 +1666,7 @@ function loadAll(){
   loadFriends();
   loadRequests();
   loadChatFriends();
+  loadProfilePosts();
 }
 
 setInterval(async()=>{
@@ -1345,6 +1690,9 @@ setInterval(async()=>{
   if(document.getElementById('view-messages').classList.contains('active')) {
     loadChatFriends();
   }
+  if(document.getElementById('view-profile').classList.contains('active')) {
+    loadProfilePosts();
+  }
 
 },2000);
 
@@ -1354,6 +1702,8 @@ async function logout(){
   }
   location.reload();
 }
+
+setupAutoResizeTextareas();
 
 window.addEventListener('beforeunload', () => {
   if(currentUser) setOnline(false);
