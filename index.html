@@ -382,8 +382,8 @@ footer {
       <div class="card">
         <h4>Filter Stream</h4>
         <div class="filter-grid">
-          <input id="filterName" placeholder="Filter name">
-          <input id="filterDate" type="date">
+          <input id="filterName" placeholder="Filter title" oninput="scheduleFeedFilter()">
+          <input id="filterDate" type="date" onchange="loadFeed()">
         </div>
         <button style="width: 100%; margin-top: 10px;" onclick="loadFeed()">Apply Filters</button>
       </div>
@@ -513,6 +513,8 @@ let typingTimeout;
 let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
 let currentAttachedFileBase64 = "";
+let feedLoadToken = 0;
+let feedFilterTimer = null;
 
 // Dynamic visual looping items for chat configurations
 const CHAT_GIF_COLLECTION = [
@@ -971,6 +973,7 @@ async function addModalComment(id) {
 }
 
 async function loadFeed(){
+  const loadToken = ++feedLoadToken;
   let r=await fetch(DB_URL+"/notes.json");
   let notes=await r.json();
 
@@ -979,8 +982,9 @@ async function loadFeed(){
 
   let filterN = filterName.value.trim().toLowerCase();
   let filterD = filterDate.value;
+  let nextFeed = document.createDocumentFragment();
 
-  feed.innerHTML="";
+  if(loadToken !== feedLoadToken) return;
 
   for(let [id,n] of Object.entries(notes||{}).reverse()){
     let isOwner=n.owner===currentUser;
@@ -990,9 +994,12 @@ async function loadFeed(){
 
     let userRes = await fetch(DB_URL+"/users/"+n.owner+".json");
     let user = await userRes.json() || {};
-    let authorDisplayName = user.displayName || n.owner;
+    if(loadToken !== feedLoadToken) return;
 
-    if(filterN && !authorDisplayName.toLowerCase().includes(filterN) && !n.owner.toLowerCase().includes(filterN)) continue;
+    let authorDisplayName = user.displayName || n.owner;
+    let noteTitle = (n.title || "").toLowerCase();
+
+    if(filterN && !noteTitle.includes(filterN)) continue;
     if(filterD) {
       let postDate = new Date(Number(id)).toISOString().split('T')[0];
       if(postDate !== filterD) continue;
@@ -1035,8 +1042,16 @@ async function loadFeed(){
       </div>
     `;
 
-    feed.appendChild(div);
+    nextFeed.appendChild(div);
   }
+
+  if(loadToken !== feedLoadToken) return;
+  feed.replaceChildren(nextFeed);
+}
+
+function scheduleFeedFilter(){
+  clearTimeout(feedFilterTimer);
+  feedFilterTimer = setTimeout(loadFeed, 250);
 }
 
 // MESSENGER ARCHITECTURE
