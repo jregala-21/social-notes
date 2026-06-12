@@ -668,6 +668,98 @@ body.chat-open .nav-toggle {
   max-width: 100%; display: block; border-radius: 8px; margin-top: 4px;
 }
 
+.msg img.chat-photo-view {
+  max-width: 100%;
+  max-height: 260px;
+  display: block;
+  border-radius: 10px;
+  margin-top: 4px;
+  object-fit: cover;
+}
+.msg-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-time {
+  display: block;
+  font-size: 10px;
+  opacity: 0.68;
+  margin-top: 5px;
+  text-align: right;
+}
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.reaction-pill,
+.reaction-choice-btn {
+  min-height: 24px;
+  height: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+}
+.reaction-pill {
+  background: rgba(255,255,255,0.22);
+  color: inherit;
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.msg-wrapper.them .reaction-pill {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+.msg-reaction-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+.reaction-plus-btn {
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.msg-wrapper.them .reaction-plus-btn {
+  border-color: var(--border-color);
+}
+.reaction-plus-btn:hover {
+  background: rgba(255,255,255,0.24);
+}
+.msg-wrapper.them .reaction-plus-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+.msg-reaction-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.reaction-choice-btn {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.msg-wrapper.them .reaction-choice-btn {
+  border-color: var(--border-color);
+}
+.reaction-choice-btn:hover,
+.reaction-choice-btn.active {
+  background: rgba(255,255,255,0.24);
+}
+.msg-wrapper.them .reaction-choice-btn:hover,
+.msg-wrapper.them .reaction-choice-btn.active {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+.chat-photo-input { display: none; }
+
 .msg-del-btn {
   background: none; border: none; padding: 4px; cursor: pointer;
   font-size: 12px; opacity: 0; transition: opacity 0.2s; color: var(--danger);
@@ -1866,6 +1958,8 @@ body.form-modal-open {
 
       <div class="chat-input-area">
         <button class="secondary" onclick="toggleGifDrawer()" style="height: 42px; padding: 0 12px;" title="Choose GIF">🎬</button>
+        <button class="secondary" onclick="document.getElementById('chatPhotoInput').click()" style="height: 42px; padding: 0 12px;" title="Upload Photo">📷</button>
+        <input class="chat-photo-input" type="file" id="chatPhotoInput" accept="image/jpeg, image/png, image/gif, image/webp" onchange="sendPhotoMessage(event)">
         <textarea id="chatInput" placeholder="Type message..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
       </div>
@@ -2014,6 +2108,7 @@ let toastCounter = 0;
 let notificationItems = [];
 let lastNotificationSignature = "";
 let notificationScanInProgress = false;
+let openReactionPickerMsgId = null;
 
 function setBottomNavHidden(isHidden) {
   const toggleBtn = document.getElementById("navToggleBtn");
@@ -3794,16 +3889,17 @@ function getNotificationStorageKey() {
 }
 
 function getNotificationSeenState() {
-  if (!currentUser) return { likes: {}, comments: {} };
+  if (!currentUser) return { likes: {}, comments: {}, chatReactions: {} };
   try {
     const raw = localStorage.getItem(getNotificationStorageKey());
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       likes: parsed.likes || {},
-      comments: parsed.comments || {}
+      comments: parsed.comments || {},
+      chatReactions: parsed.chatReactions || {}
     };
   } catch (error) {
-    return { likes: {}, comments: {} };
+    return { likes: {}, comments: {}, chatReactions: {} };
   }
 }
 
@@ -3811,7 +3907,8 @@ function saveNotificationSeenState(state) {
   if (!currentUser) return;
   localStorage.setItem(getNotificationStorageKey(), JSON.stringify({
     likes: state.likes || {},
-    comments: state.comments || {}
+    comments: state.comments || {},
+    chatReactions: state.chatReactions || {}
   }));
 }
 
@@ -3921,6 +4018,27 @@ async function scanNotifications() {
           text: `${unreadIds.length} unread ${unreadIds.length === 1 ? "message" : "messages"}. Tap to open the chat.`
         });
       }
+
+      for (const [messageId, msg] of Object.entries(messagesData)) {
+        if (!msg || msg.sender !== currentUser || !msg.reactions) continue;
+
+        for (const [reactor, emoji] of Object.entries(msg.reactions)) {
+          if (reactor === currentUser) continue;
+          const key = `${cid}_${messageId}_${reactor}_${emoji}`;
+          if (seen.chatReactions && seen.chatReactions[key]) continue;
+
+          items.push({
+            type: "chatReaction",
+            user: reactor,
+            chatUser: friend,
+            messageId,
+            key,
+            count: 1,
+            title: `${emoji} New chat reaction`,
+            text: `@${reactor} reacted to your chat message. Tap to open the chat.`
+          });
+        }
+      }
     }
 
     const notesRes = await fetch(DB_URL+"/notes.json");
@@ -3989,10 +4107,15 @@ async function openNotificationItem(index) {
   const item = notificationItems[index];
   if (!item) return;
 
-  if (item.type === "chat") {
+  if (item.type === "chat" || item.type === "chatReaction") {
+    if (item.type === "chatReaction") {
+      const seen = getNotificationSeenState();
+      seen.chatReactions[item.key] = true;
+      saveNotificationSeenState(seen);
+    }
     switchView("messages");
     await loadChatFriends();
-    await openChat(item.user);
+    await openChat(item.chatUser || item.user);
     toggleNotificationPanel(false);
     setTimeout(scanNotifications, 400);
     return;
@@ -4024,6 +4147,7 @@ async function markAllNotificationsRead() {
   for (const item of notificationItems) {
     if (item.type === "like") seen.likes[item.key] = true;
     if (item.type === "comment") seen.comments[item.key] = true;
+    if (item.type === "chatReaction") seen.chatReactions[item.key] = true;
     if (item.type === "chat" && item.user) {
       const cid = chatId(currentUser, item.user);
       for (const msgId of item.messageIds || []) {
@@ -4225,6 +4349,7 @@ function closeChat() {
   document.body.classList.remove("chat-open");
   currentChatUser=null;
   lastChatData = "";
+  openReactionPickerMsgId = null;
 }
 
 // INLINE GIF SELECTION COMPONENT DRAWER
@@ -4252,7 +4377,7 @@ async function sendGifMessage(gifUrl) {
 
   await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
     method: "PUT",
-    body: JSON.stringify({ text, sender: currentUser, seen: false })
+    body: JSON.stringify({ text, sender: currentUser, seen: false, createdAt: id, reactions: {} })
   });
 
   document.getElementById('gifDrawerBox').style.display = 'none';
@@ -4267,6 +4392,26 @@ function handleChatInputKeydown(event) {
   }
 }
 
+function formatChatTimestamp(value) {
+  const time = Number(value) || Date.now();
+  const date = new Date(time);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const timeText = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (sameDay) return timeText;
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${timeText}`;
+  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${timeText}`;
+}
+
+function getChatMessageTextPreview(message = {}) {
+  if (message.photo) return "Photo";
+  if (message.text && String(message.text).startsWith("[GIF] ")) return "GIF";
+  return String(message.text || "message").slice(0, 40);
+}
+
 async function sendMessage(){
   let text=chatInput.value.trim();
   if(!text) return;
@@ -4279,7 +4424,9 @@ async function sendMessage(){
     body:JSON.stringify({
       text,
       sender:currentUser,
-      seen:false
+      seen:false,
+      createdAt:id,
+      reactions:{}
     })
   });
 
@@ -4287,6 +4434,41 @@ async function sendMessage(){
   autoResizeTextarea(chatInput);
   loadMessages();
   scanNotifications();
+}
+
+async function sendPhotoMessage(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file || !currentChatUser) return;
+
+  if (!file.type.startsWith("image/")) {
+    showCustomAlert("Please choose an image file for chat photos.", "Invalid File");
+    input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const id = Date.now();
+    const cid = chatId(currentUser, currentChatUser);
+
+    await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
+      method: "PUT",
+      body: JSON.stringify({
+        text: "",
+        photo: e.target.result,
+        sender: currentUser,
+        seen: false,
+        createdAt: id,
+        reactions: {}
+      })
+    });
+
+    input.value = "";
+    loadMessages();
+    scanNotifications();
+  };
+  reader.readAsDataURL(file);
 }
 
 async function deleteMessage(msgId) {
@@ -4298,6 +4480,131 @@ async function deleteMessage(msgId) {
     let element = document.getElementById(`msg-${msgId}`);
     if(element) element.remove();
   }, "Delete Message");
+}
+
+async function toggleMessageReaction(msgId, emoji, event) {
+  if (event) event.stopPropagation();
+  if (!currentChatUser || !emoji) return;
+
+  const cid = chatId(currentUser, currentChatUser);
+  const path = DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${currentUser}.json`;
+  const existingRes = await fetch(path);
+  const existing = await existingRes.json();
+
+  if (existing === emoji) {
+    await fetch(path, { method: "DELETE" });
+  } else {
+    await fetch(path, { method: "PUT", body: JSON.stringify(emoji) });
+  }
+
+  loadMessages();
+  scanNotifications();
+}
+
+function renderMessageContent(message = {}, bubble) {
+  const textValue = String(message.text || "");
+
+  if (message.photo) {
+    const label = document.createElement("span");
+    label.style.cssText = "font-size:11px; display:block; opacity:0.7; margin-bottom:4px;";
+    label.textContent = "Sent photo";
+    const img = document.createElement("img");
+    img.src = message.photo;
+    img.className = "chat-photo-view";
+    img.alt = "chat uploaded photo";
+    bubble.appendChild(label);
+    bubble.appendChild(img);
+    if (textValue) {
+      const caption = document.createElement("div");
+      caption.className = "msg-body";
+      caption.textContent = textValue;
+      bubble.appendChild(caption);
+    }
+    return;
+  }
+
+  if(textValue.startsWith("[GIF] ")) {
+    let cleanUrl = textValue.replace("[GIF] ", "");
+    const label = document.createElement("span");
+    label.style.cssText = "font-size:11px; display:block; opacity:0.7; margin-bottom:2px;";
+    label.textContent = "Sent animation";
+    const img = document.createElement("img");
+    img.src = cleanUrl;
+    img.className = "chat-gif-view";
+    img.alt = "chat shared inline gif content";
+    bubble.appendChild(label);
+    bubble.appendChild(img);
+    return;
+  }
+
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.textContent = textValue;
+  bubble.appendChild(body);
+}
+
+function renderMessageReactions(message = {}, msgId, bubble) {
+  const reactions = message.reactions || {};
+  const reactionEntries = Object.entries(reactions).filter(([, emoji]) => emoji);
+
+  if (reactionEntries.length) {
+    const row = document.createElement("div");
+    row.className = "msg-reactions";
+
+    const grouped = reactionEntries.reduce((acc, [user, emoji]) => {
+      if (!acc[emoji]) acc[emoji] = [];
+      acc[emoji].push(user);
+      return acc;
+    }, {});
+
+    Object.entries(grouped).forEach(([emoji, users]) => {
+      const pill = document.createElement("button");
+      pill.className = "reaction-pill";
+      pill.type = "button";
+      pill.title = users.map(user => `@${user}`).join(", ");
+      pill.textContent = `${emoji} ${users.length}`;
+      pill.onclick = (event) => toggleMessageReaction(msgId, emoji, event);
+      row.appendChild(pill);
+    });
+
+    bubble.appendChild(row);
+  }
+
+  const reactionWrap = document.createElement("div");
+  reactionWrap.className = "msg-reaction-wrap";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "reaction-plus-btn";
+  toggleBtn.type = "button";
+  toggleBtn.textContent = openReactionPickerMsgId === msgId ? "×" : "+";
+  toggleBtn.title = openReactionPickerMsgId === msgId ? "Hide reactions" : "Add reaction";
+
+  const picker = document.createElement("div");
+  picker.className = "msg-reaction-picker";
+  picker.style.display = openReactionPickerMsgId === msgId ? "flex" : "none";
+
+  toggleBtn.onclick = (event) => {
+    event.stopPropagation();
+    openReactionPickerMsgId = openReactionPickerMsgId === msgId ? null : msgId;
+    loadMessages();
+  };
+
+  ["👍", "❤️", "😂", "😮", "😢"].forEach(emoji => {
+    const btn = document.createElement("button");
+    btn.className = `reaction-choice-btn ${reactions[currentUser] === emoji ? "active" : ""}`;
+    btn.type = "button";
+    btn.textContent = emoji;
+    btn.title = `React ${emoji}`;
+    btn.onclick = (event) => {
+      openReactionPickerMsgId = null;
+      toggleMessageReaction(msgId, emoji, event);
+    };
+    picker.appendChild(btn);
+  });
+
+  reactionWrap.appendChild(toggleBtn);
+  reactionWrap.appendChild(picker);
+  bubble.appendChild(reactionWrap);
 }
 
 async function loadMessages(){
@@ -4312,65 +4619,44 @@ async function loadMessages(){
     return;
   }
 
-  if(messages.innerHTML.includes("No messages")) messages.innerHTML = "";
+  const wasNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80;
+  const entries = Object.entries(data).sort((a,b) => Number(a[0]) - Number(b[0]));
+  const nextMessages = document.createDocumentFragment();
 
-  Array.from(messages.children).forEach(child => {
-    if(child.id && !data[child.id.replace('msg-', '')]) child.remove();
-  });
+  for(let [id,m] of entries){
+    let wrapper = document.createElement("div");
+    wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
+    wrapper.id = `msg-${id}`;
 
-  let addedNewMessage = false;
-
-  for(let [id,m] of Object.entries(data)){
-    let existingMsg = document.getElementById(`msg-${id}`);
-    
-    if(!existingMsg) {
-      let wrapper = document.createElement("div");
-      wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
-      wrapper.id = `msg-${id}`;
-
-      if(m.sender === currentUser) {
-        let delBtn = document.createElement("button");
-        delBtn.className = "msg-del-btn";
-        delBtn.innerHTML = "🗑️";
-        delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
-        wrapper.appendChild(delBtn);
-      }
-
-      let div=document.createElement("div");
-      div.className="msg";
-
-      if(m.text.startsWith("[GIF] ")) {
-        let cleanUrl = m.text.replace("[GIF] ", "");
-        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
-      } else {
-        div.textContent = m.text;
-      }
-
-      if(m.sender===currentUser && m.seen) {
-        let seenEye = document.createElement("span");
-        seenEye.className = "seen-status";
-        seenEye.style.fontSize = "10px";
-        seenEye.style.marginLeft = "6px";
-        seenEye.innerText = "👁️";
-        div.appendChild(seenEye);
-      }
-
-      wrapper.appendChild(div);
-      messages.appendChild(wrapper);
-      addedNewMessage = true;
-    } else {
-      if(m.sender===currentUser && m.seen) {
-        let msgBubble = existingMsg.querySelector(".msg");
-        if(msgBubble && !msgBubble.querySelector(".seen-status")) {
-          let seenEye = document.createElement("span");
-          seenEye.className = "seen-status";
-          seenEye.style.fontSize = "10px";
-          seenEye.style.marginLeft = "6px";
-          seenEye.innerText = "👁️";
-          msgBubble.appendChild(seenEye);
-        }
-      }
+    if(m.sender === currentUser) {
+      let delBtn = document.createElement("button");
+      delBtn.className = "msg-del-btn";
+      delBtn.innerHTML = "🗑️";
+      delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
+      wrapper.appendChild(delBtn);
     }
+
+    let div=document.createElement("div");
+    div.className="msg";
+    renderMessageContent(m, div);
+
+    let time = document.createElement("span");
+    time.className = "msg-time";
+    time.textContent = formatChatTimestamp(m.createdAt || id);
+    div.appendChild(time);
+
+    if(m.sender===currentUser && m.seen) {
+      let seenEye = document.createElement("span");
+      seenEye.className = "seen-status";
+      seenEye.style.fontSize = "10px";
+      seenEye.style.marginLeft = "6px";
+      seenEye.innerText = "👁️";
+      time.appendChild(seenEye);
+    }
+
+    renderMessageReactions(m, id, div);
+    wrapper.appendChild(div);
+    nextMessages.appendChild(wrapper);
 
     if(m.sender !== currentUser && !m.seen){
       await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
@@ -4380,10 +4666,8 @@ async function loadMessages(){
     }
   }
 
-  if(addedNewMessage) {
-    messages.scrollTop=messages.scrollHeight;
-  }
-
+  messages.replaceChildren(nextMessages);
+  if(wasNearBottom) messages.scrollTop=messages.scrollHeight;
   scanNotifications();
 }
 
