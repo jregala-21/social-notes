@@ -443,6 +443,13 @@ body.nav-hidden .nav-toggle {
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
   overflow-wrap: anywhere; word-break: break-word;
 }
+.note-text a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.note-text a:hover {
+  color: var(--accent-hover);
+}
 .note-meta { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; display: flex; gap: 12px; }
 .note-actions { display: flex; gap: 8px; }
 .note-actions button { padding: 8px 14px; font-size: 13px; }
@@ -667,98 +674,6 @@ body.chat-open .nav-toggle {
 .msg img.chat-gif-view {
   max-width: 100%; display: block; border-radius: 8px; margin-top: 4px;
 }
-
-.msg img.chat-photo-view {
-  max-width: 100%;
-  max-height: 260px;
-  display: block;
-  border-radius: 10px;
-  margin-top: 4px;
-  object-fit: cover;
-}
-.msg-body { white-space: pre-wrap; overflow-wrap: anywhere; }
-.msg-time {
-  display: block;
-  font-size: 10px;
-  opacity: 0.68;
-  margin-top: 5px;
-  text-align: right;
-}
-.msg-reactions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-.reaction-pill,
-.reaction-choice-btn {
-  min-height: 24px;
-  height: 24px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 12px;
-  line-height: 1;
-}
-.reaction-pill {
-  background: rgba(255,255,255,0.22);
-  color: inherit;
-  border: 1px solid rgba(255,255,255,0.22);
-}
-.msg-wrapper.them .reaction-pill {
-  background: var(--bg-card);
-  border-color: var(--border-color);
-}
-.msg-reaction-wrap {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 5px;
-}
-.reaction-plus-btn {
-  min-width: 24px;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 999px;
-  font-size: 16px;
-  line-height: 1;
-  background: transparent;
-  color: inherit;
-  border: 1px solid rgba(255,255,255,0.25);
-}
-.msg-wrapper.them .reaction-plus-btn {
-  border-color: var(--border-color);
-}
-.reaction-plus-btn:hover {
-  background: rgba(255,255,255,0.24);
-}
-.msg-wrapper.them .reaction-plus-btn:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-.msg-reaction-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.reaction-choice-btn {
-  background: transparent;
-  color: inherit;
-  border: 1px solid rgba(255,255,255,0.25);
-}
-.msg-wrapper.them .reaction-choice-btn {
-  border-color: var(--border-color);
-}
-.reaction-choice-btn:hover,
-.reaction-choice-btn.active {
-  background: rgba(255,255,255,0.24);
-}
-.msg-wrapper.them .reaction-choice-btn:hover,
-.msg-wrapper.them .reaction-choice-btn.active {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-.chat-photo-input { display: none; }
 
 .msg-del-btn {
   background: none; border: none; padding: 4px; cursor: pointer;
@@ -1958,8 +1873,6 @@ body.form-modal-open {
 
       <div class="chat-input-area">
         <button class="secondary" onclick="toggleGifDrawer()" style="height: 42px; padding: 0 12px;" title="Choose GIF">🎬</button>
-        <button class="secondary" onclick="document.getElementById('chatPhotoInput').click()" style="height: 42px; padding: 0 12px;" title="Upload Photo">📷</button>
-        <input class="chat-photo-input" type="file" id="chatPhotoInput" accept="image/jpeg, image/png, image/gif, image/webp" onchange="sendPhotoMessage(event)">
         <textarea id="chatInput" placeholder="Type message..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
       </div>
@@ -2108,7 +2021,6 @@ let toastCounter = 0;
 let notificationItems = [];
 let lastNotificationSignature = "";
 let notificationScanInProgress = false;
-let openReactionPickerMsgId = null;
 
 function setBottomNavHidden(isHidden) {
   const toggleBtn = document.getElementById("navToggleBtn");
@@ -2150,6 +2062,27 @@ function escapeHTML(value) {
     .replace(/'/g, "&#39;");
 }
 
+function formatDateTime(timestamp) {
+  const date = new Date(Number(timestamp) || Date.now());
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function linkifyText(text) {
+  const escaped = escapeHTML(text);
+  return escaped
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">$1</a>')
+    .replace(/(^|[^\/])(www\.[^\s<]+)/gi, (match, prefix, url) => `${prefix}<a href="https://${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${url}</a>`);
+}
+
+function renderNoteText(text) {
+  return `<div class="note-text">${linkifyText(String(text || ""))}</div>`;
+}
 
 function normalizeTags(value) {
   return String(value || "")
@@ -2378,7 +2311,7 @@ async function saveEditedNote() {
     if (updatedNote) {
       modalPostTitle.innerText = updatedNote.title || "";
       modalPostTitle.style.display = updatedNote.title ? "block" : "none";
-      modalPostText.innerText = updatedNote.text || "";
+      modalPostText.innerHTML = linkifyText(updatedNote.text || "");
       syncModalDetails(editedId);
     }
   }
@@ -3196,7 +3129,7 @@ function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
   modalAuthor.innerText = `${userAvatar} ${displayedAuthorName}'s Post`;
   modalPostTitle.innerText = noteObj.title || "";
   modalPostTitle.style.display = noteObj.title ? "block" : "none";
-  modalPostText.innerText = noteObj.text;
+  modalPostText.innerHTML = linkifyText(noteObj.text || "");
   
   let mediaArea = document.getElementById("modalAttachmentArea");
   if(noteObj.attachment) {
@@ -3393,11 +3326,12 @@ async function loadFeed(){
     let safeAuthorDisplayName = escapeHTML(authorDisplayName);
     let safeOwner = escapeHTML(n.owner);
     let safeTitle = escapeHTML(n.title || "");
-    let safeText = escapeHTML(n.text || "");
     let safeAvatar = escapeHTML(user.avatar || "😀");
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
     let badgesMarkup = renderNoteBadges(n);
+    let noteDate = formatDateTime(n.createdAt || id);
+    let textMarkup = renderNoteText(n.text || "");
 
     div.innerHTML=`
       ${topActionsMarkup}
@@ -3409,9 +3343,10 @@ async function loadFeed(){
       </div>
       ${badgesMarkup}
       ${titleMarkup}
-      <div class="note-text">${safeText}</div>
+      ${textMarkup}
       ${mediaMarkup}
       <div class="note-meta">
+        <span>${noteDate}</span>
         <span>❤️ ${likesCount} Likes</span>
         <span>📝 ${commentsCount} Notes</span>
       </div>
@@ -3535,12 +3470,13 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
     let safeAuthorDisplayName = escapeHTML(authorDisplayName);
     let safeOwner = escapeHTML(n.owner);
     let safeTitle = escapeHTML(n.title || "");
-    let safeText = escapeHTML(n.text || "");
     let safeAvatar = escapeHTML(userAvatar);
     let safePrivacy = escapeHTML(n.privacy || "public");
     let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="profile media post item">` : "";
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
     let badgeMarkup = renderNoteBadges(n);
+    let noteDate = formatDateTime(n.createdAt || id);
+    let textMarkup = renderNoteText(n.text || "");
 
     div.innerHTML = `
       <div class="post-top-actions">
@@ -3558,9 +3494,10 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
       </div>
       ${badgeMarkup}
       ${titleMarkup}
-      <div class="note-text">${safeText}</div>
+      ${textMarkup}
       ${mediaMarkup}
       <div class="note-meta">
+        <span>${noteDate}</span>
         <span>❤️ ${likesCount} Likes</span>
         <span>📝 ${commentsCount} Notes</span>
       </div>
@@ -3889,17 +3826,16 @@ function getNotificationStorageKey() {
 }
 
 function getNotificationSeenState() {
-  if (!currentUser) return { likes: {}, comments: {}, chatReactions: {} };
+  if (!currentUser) return { likes: {}, comments: {} };
   try {
     const raw = localStorage.getItem(getNotificationStorageKey());
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       likes: parsed.likes || {},
-      comments: parsed.comments || {},
-      chatReactions: parsed.chatReactions || {}
+      comments: parsed.comments || {}
     };
   } catch (error) {
-    return { likes: {}, comments: {}, chatReactions: {} };
+    return { likes: {}, comments: {} };
   }
 }
 
@@ -3907,8 +3843,7 @@ function saveNotificationSeenState(state) {
   if (!currentUser) return;
   localStorage.setItem(getNotificationStorageKey(), JSON.stringify({
     likes: state.likes || {},
-    comments: state.comments || {},
-    chatReactions: state.chatReactions || {}
+    comments: state.comments || {}
   }));
 }
 
@@ -4018,27 +3953,6 @@ async function scanNotifications() {
           text: `${unreadIds.length} unread ${unreadIds.length === 1 ? "message" : "messages"}. Tap to open the chat.`
         });
       }
-
-      for (const [messageId, msg] of Object.entries(messagesData)) {
-        if (!msg || msg.sender !== currentUser || !msg.reactions) continue;
-
-        for (const [reactor, emoji] of Object.entries(msg.reactions)) {
-          if (reactor === currentUser) continue;
-          const key = `${cid}_${messageId}_${reactor}_${emoji}`;
-          if (seen.chatReactions && seen.chatReactions[key]) continue;
-
-          items.push({
-            type: "chatReaction",
-            user: reactor,
-            chatUser: friend,
-            messageId,
-            key,
-            count: 1,
-            title: `${emoji} New chat reaction`,
-            text: `@${reactor} reacted to your chat message. Tap to open the chat.`
-          });
-        }
-      }
     }
 
     const notesRes = await fetch(DB_URL+"/notes.json");
@@ -4107,15 +4021,10 @@ async function openNotificationItem(index) {
   const item = notificationItems[index];
   if (!item) return;
 
-  if (item.type === "chat" || item.type === "chatReaction") {
-    if (item.type === "chatReaction") {
-      const seen = getNotificationSeenState();
-      seen.chatReactions[item.key] = true;
-      saveNotificationSeenState(seen);
-    }
+  if (item.type === "chat") {
     switchView("messages");
     await loadChatFriends();
-    await openChat(item.chatUser || item.user);
+    await openChat(item.user);
     toggleNotificationPanel(false);
     setTimeout(scanNotifications, 400);
     return;
@@ -4147,7 +4056,6 @@ async function markAllNotificationsRead() {
   for (const item of notificationItems) {
     if (item.type === "like") seen.likes[item.key] = true;
     if (item.type === "comment") seen.comments[item.key] = true;
-    if (item.type === "chatReaction") seen.chatReactions[item.key] = true;
     if (item.type === "chat" && item.user) {
       const cid = chatId(currentUser, item.user);
       for (const msgId of item.messageIds || []) {
@@ -4349,7 +4257,6 @@ function closeChat() {
   document.body.classList.remove("chat-open");
   currentChatUser=null;
   lastChatData = "";
-  openReactionPickerMsgId = null;
 }
 
 // INLINE GIF SELECTION COMPONENT DRAWER
@@ -4377,7 +4284,7 @@ async function sendGifMessage(gifUrl) {
 
   await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
     method: "PUT",
-    body: JSON.stringify({ text, sender: currentUser, seen: false, createdAt: id, reactions: {} })
+    body: JSON.stringify({ text, sender: currentUser, seen: false })
   });
 
   document.getElementById('gifDrawerBox').style.display = 'none';
@@ -4392,26 +4299,6 @@ function handleChatInputKeydown(event) {
   }
 }
 
-function formatChatTimestamp(value) {
-  const time = Number(value) || Date.now();
-  const date = new Date(time);
-  const now = new Date();
-  const sameDay = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-
-  const timeText = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  if (sameDay) return timeText;
-  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${timeText}`;
-  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${timeText}`;
-}
-
-function getChatMessageTextPreview(message = {}) {
-  if (message.photo) return "Photo";
-  if (message.text && String(message.text).startsWith("[GIF] ")) return "GIF";
-  return String(message.text || "message").slice(0, 40);
-}
-
 async function sendMessage(){
   let text=chatInput.value.trim();
   if(!text) return;
@@ -4424,9 +4311,7 @@ async function sendMessage(){
     body:JSON.stringify({
       text,
       sender:currentUser,
-      seen:false,
-      createdAt:id,
-      reactions:{}
+      seen:false
     })
   });
 
@@ -4434,41 +4319,6 @@ async function sendMessage(){
   autoResizeTextarea(chatInput);
   loadMessages();
   scanNotifications();
-}
-
-async function sendPhotoMessage(event) {
-  const input = event.target;
-  const file = input.files && input.files[0];
-  if (!file || !currentChatUser) return;
-
-  if (!file.type.startsWith("image/")) {
-    showCustomAlert("Please choose an image file for chat photos.", "Invalid File");
-    input.value = "";
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const id = Date.now();
-    const cid = chatId(currentUser, currentChatUser);
-
-    await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
-      method: "PUT",
-      body: JSON.stringify({
-        text: "",
-        photo: e.target.result,
-        sender: currentUser,
-        seen: false,
-        createdAt: id,
-        reactions: {}
-      })
-    });
-
-    input.value = "";
-    loadMessages();
-    scanNotifications();
-  };
-  reader.readAsDataURL(file);
 }
 
 async function deleteMessage(msgId) {
@@ -4480,131 +4330,6 @@ async function deleteMessage(msgId) {
     let element = document.getElementById(`msg-${msgId}`);
     if(element) element.remove();
   }, "Delete Message");
-}
-
-async function toggleMessageReaction(msgId, emoji, event) {
-  if (event) event.stopPropagation();
-  if (!currentChatUser || !emoji) return;
-
-  const cid = chatId(currentUser, currentChatUser);
-  const path = DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${currentUser}.json`;
-  const existingRes = await fetch(path);
-  const existing = await existingRes.json();
-
-  if (existing === emoji) {
-    await fetch(path, { method: "DELETE" });
-  } else {
-    await fetch(path, { method: "PUT", body: JSON.stringify(emoji) });
-  }
-
-  loadMessages();
-  scanNotifications();
-}
-
-function renderMessageContent(message = {}, bubble) {
-  const textValue = String(message.text || "");
-
-  if (message.photo) {
-    const label = document.createElement("span");
-    label.style.cssText = "font-size:11px; display:block; opacity:0.7; margin-bottom:4px;";
-    label.textContent = "Sent photo";
-    const img = document.createElement("img");
-    img.src = message.photo;
-    img.className = "chat-photo-view";
-    img.alt = "chat uploaded photo";
-    bubble.appendChild(label);
-    bubble.appendChild(img);
-    if (textValue) {
-      const caption = document.createElement("div");
-      caption.className = "msg-body";
-      caption.textContent = textValue;
-      bubble.appendChild(caption);
-    }
-    return;
-  }
-
-  if(textValue.startsWith("[GIF] ")) {
-    let cleanUrl = textValue.replace("[GIF] ", "");
-    const label = document.createElement("span");
-    label.style.cssText = "font-size:11px; display:block; opacity:0.7; margin-bottom:2px;";
-    label.textContent = "Sent animation";
-    const img = document.createElement("img");
-    img.src = cleanUrl;
-    img.className = "chat-gif-view";
-    img.alt = "chat shared inline gif content";
-    bubble.appendChild(label);
-    bubble.appendChild(img);
-    return;
-  }
-
-  const body = document.createElement("div");
-  body.className = "msg-body";
-  body.textContent = textValue;
-  bubble.appendChild(body);
-}
-
-function renderMessageReactions(message = {}, msgId, bubble) {
-  const reactions = message.reactions || {};
-  const reactionEntries = Object.entries(reactions).filter(([, emoji]) => emoji);
-
-  if (reactionEntries.length) {
-    const row = document.createElement("div");
-    row.className = "msg-reactions";
-
-    const grouped = reactionEntries.reduce((acc, [user, emoji]) => {
-      if (!acc[emoji]) acc[emoji] = [];
-      acc[emoji].push(user);
-      return acc;
-    }, {});
-
-    Object.entries(grouped).forEach(([emoji, users]) => {
-      const pill = document.createElement("button");
-      pill.className = "reaction-pill";
-      pill.type = "button";
-      pill.title = users.map(user => `@${user}`).join(", ");
-      pill.textContent = `${emoji} ${users.length}`;
-      pill.onclick = (event) => toggleMessageReaction(msgId, emoji, event);
-      row.appendChild(pill);
-    });
-
-    bubble.appendChild(row);
-  }
-
-  const reactionWrap = document.createElement("div");
-  reactionWrap.className = "msg-reaction-wrap";
-
-  const toggleBtn = document.createElement("button");
-  toggleBtn.className = "reaction-plus-btn";
-  toggleBtn.type = "button";
-  toggleBtn.textContent = openReactionPickerMsgId === msgId ? "×" : "+";
-  toggleBtn.title = openReactionPickerMsgId === msgId ? "Hide reactions" : "Add reaction";
-
-  const picker = document.createElement("div");
-  picker.className = "msg-reaction-picker";
-  picker.style.display = openReactionPickerMsgId === msgId ? "flex" : "none";
-
-  toggleBtn.onclick = (event) => {
-    event.stopPropagation();
-    openReactionPickerMsgId = openReactionPickerMsgId === msgId ? null : msgId;
-    loadMessages();
-  };
-
-  ["👍", "❤️", "😂", "😮", "😢"].forEach(emoji => {
-    const btn = document.createElement("button");
-    btn.className = `reaction-choice-btn ${reactions[currentUser] === emoji ? "active" : ""}`;
-    btn.type = "button";
-    btn.textContent = emoji;
-    btn.title = `React ${emoji}`;
-    btn.onclick = (event) => {
-      openReactionPickerMsgId = null;
-      toggleMessageReaction(msgId, emoji, event);
-    };
-    picker.appendChild(btn);
-  });
-
-  reactionWrap.appendChild(toggleBtn);
-  reactionWrap.appendChild(picker);
-  bubble.appendChild(reactionWrap);
 }
 
 async function loadMessages(){
@@ -4619,44 +4344,65 @@ async function loadMessages(){
     return;
   }
 
-  const wasNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80;
-  const entries = Object.entries(data).sort((a,b) => Number(a[0]) - Number(b[0]));
-  const nextMessages = document.createDocumentFragment();
+  if(messages.innerHTML.includes("No messages")) messages.innerHTML = "";
 
-  for(let [id,m] of entries){
-    let wrapper = document.createElement("div");
-    wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
-    wrapper.id = `msg-${id}`;
+  Array.from(messages.children).forEach(child => {
+    if(child.id && !data[child.id.replace('msg-', '')]) child.remove();
+  });
 
-    if(m.sender === currentUser) {
-      let delBtn = document.createElement("button");
-      delBtn.className = "msg-del-btn";
-      delBtn.innerHTML = "🗑️";
-      delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
-      wrapper.appendChild(delBtn);
+  let addedNewMessage = false;
+
+  for(let [id,m] of Object.entries(data)){
+    let existingMsg = document.getElementById(`msg-${id}`);
+    
+    if(!existingMsg) {
+      let wrapper = document.createElement("div");
+      wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
+      wrapper.id = `msg-${id}`;
+
+      if(m.sender === currentUser) {
+        let delBtn = document.createElement("button");
+        delBtn.className = "msg-del-btn";
+        delBtn.innerHTML = "🗑️";
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
+        wrapper.appendChild(delBtn);
+      }
+
+      let div=document.createElement("div");
+      div.className="msg";
+
+      if(m.text.startsWith("[GIF] ")) {
+        let cleanUrl = m.text.replace("[GIF] ", "");
+        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
+      } else {
+        div.textContent = m.text;
+      }
+
+      if(m.sender===currentUser && m.seen) {
+        let seenEye = document.createElement("span");
+        seenEye.className = "seen-status";
+        seenEye.style.fontSize = "10px";
+        seenEye.style.marginLeft = "6px";
+        seenEye.innerText = "👁️";
+        div.appendChild(seenEye);
+      }
+
+      wrapper.appendChild(div);
+      messages.appendChild(wrapper);
+      addedNewMessage = true;
+    } else {
+      if(m.sender===currentUser && m.seen) {
+        let msgBubble = existingMsg.querySelector(".msg");
+        if(msgBubble && !msgBubble.querySelector(".seen-status")) {
+          let seenEye = document.createElement("span");
+          seenEye.className = "seen-status";
+          seenEye.style.fontSize = "10px";
+          seenEye.style.marginLeft = "6px";
+          seenEye.innerText = "👁️";
+          msgBubble.appendChild(seenEye);
+        }
+      }
     }
-
-    let div=document.createElement("div");
-    div.className="msg";
-    renderMessageContent(m, div);
-
-    let time = document.createElement("span");
-    time.className = "msg-time";
-    time.textContent = formatChatTimestamp(m.createdAt || id);
-    div.appendChild(time);
-
-    if(m.sender===currentUser && m.seen) {
-      let seenEye = document.createElement("span");
-      seenEye.className = "seen-status";
-      seenEye.style.fontSize = "10px";
-      seenEye.style.marginLeft = "6px";
-      seenEye.innerText = "👁️";
-      time.appendChild(seenEye);
-    }
-
-    renderMessageReactions(m, id, div);
-    wrapper.appendChild(div);
-    nextMessages.appendChild(wrapper);
 
     if(m.sender !== currentUser && !m.seen){
       await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
@@ -4666,8 +4412,10 @@ async function loadMessages(){
     }
   }
 
-  messages.replaceChildren(nextMessages);
-  if(wasNearBottom) messages.scrollTop=messages.scrollHeight;
+  if(addedNewMessage) {
+    messages.scrollTop=messages.scrollHeight;
+  }
+
   scanNotifications();
 }
 
