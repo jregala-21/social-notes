@@ -233,6 +233,7 @@ footer {
 }
 
 .nav-toggle {
+  display: none !important;
   position: fixed;
   left: 50%;
   bottom: calc(76px + env(safe-area-inset-bottom, 0px));
@@ -2165,24 +2166,59 @@ let lastNotificationSignature = "";
 let notificationScanInProgress = false;
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 let activeReactionMessageId = null;
+let bottomNavScrollTimer = null;
+let lastBottomNavScrollY = 0;
+let bottomNavLockedHidden = false;
 
 function setBottomNavHidden(isHidden) {
-  const toggleBtn = document.getElementById("navToggleBtn");
-  document.body.classList.toggle("nav-hidden", isHidden);
-  localStorage.setItem("bottomNavHidden", isHidden ? "true" : "false");
-
-  if (toggleBtn) {
-    toggleBtn.textContent = isHidden ? "⌃" : "⌄";
-    toggleBtn.setAttribute("aria-label", isHidden ? "Show bottom navigation" : "Hide bottom navigation");
-  }
+  document.body.classList.toggle("nav-hidden", !!isHidden);
 }
 
 function toggleBottomNav() {
   setBottomNavHidden(!document.body.classList.contains("nav-hidden"));
 }
 
+function shouldAutoShowBottomNav() {
+  return currentUser && !bottomNavLockedHidden && !currentChatUser && !document.body.classList.contains("form-modal-open");
+}
+
+function hideBottomNavForModal() {
+  bottomNavLockedHidden = true;
+  clearTimeout(bottomNavScrollTimer);
+  setBottomNavHidden(true);
+}
+
+function releaseBottomNavFromModal() {
+  bottomNavLockedHidden = false;
+  if (!currentChatUser && !document.body.classList.contains("form-modal-open")) {
+    setBottomNavHidden(false);
+  }
+}
+
+function setupAutoHideBottomNav() {
+  lastBottomNavScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+  window.addEventListener("scroll", () => {
+    if (!currentUser || bottomNavLockedHidden || currentChatUser || document.body.classList.contains("form-modal-open")) return;
+
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const moved = Math.abs(currentScrollY - lastBottomNavScrollY);
+
+    if (moved > 6) {
+      setBottomNavHidden(true);
+      clearTimeout(bottomNavScrollTimer);
+      bottomNavScrollTimer = setTimeout(() => {
+        if (shouldAutoShowBottomNav()) setBottomNavHidden(false);
+      }, 850);
+    }
+
+    lastBottomNavScrollY = currentScrollY;
+  }, { passive: true });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  setBottomNavHidden(localStorage.getItem("bottomNavHidden") === "true");
+  setBottomNavHidden(false);
+  setupAutoHideBottomNav();
 });
 
 // Chat photo upload and text media support uses the user's camera/album plus normal message text.
@@ -2802,6 +2838,7 @@ function switchView(viewId, btnToken) {
   if (btnToken) btnToken.classList.add('active');
   window.scrollTo({ top: 0, behavior: "smooth" });
   
+  if (!bottomNavLockedHidden && viewId !== 'messages') setBottomNavHidden(false);
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
@@ -3378,6 +3415,7 @@ async function like(id, event){
 }
 
 function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
+  hideBottomNavForModal();
   currentActiveNoteId = id;
   currentCommentsStringState = "";
   noteModal.style.display = "flex";
@@ -3400,6 +3438,7 @@ function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
 function closeNoteModal() {
   noteModal.style.display = "none";
   currentActiveNoteId = null;
+  releaseBottomNavFromModal();
 }
 
 async function syncModalDetails(id) {
