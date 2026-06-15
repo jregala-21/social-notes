@@ -430,6 +430,37 @@ body.nav-hidden .nav-toggle {
   padding: 6px 12px;
   font-size: 12px;
 }
+.hidden-post-row {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.hidden-post-title {
+  font-weight: 800;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.hidden-post-preview {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  margin-bottom: 8px;
+}
+.hidden-post-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.hidden-post-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .avatar { font-size: 32px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 
@@ -1786,6 +1817,7 @@ body.form-modal-open {
         <div class="profile-create-actions">
           <button class="create-note-toggle-btn" onclick="toggleCreateNoteForm('profile')">➕ Make Post</button>
           <button class="small-action-btn" onclick="toggleFoldersPanel()">📁 Folders</button>
+          <button class="secondary small-action-btn" onclick="toggleHiddenPostsPanel()">🙈 Hidden Posts</button>
         </div>
         <div id="profileCreateNoteForm" class="create-note-form hidden">
           <h4>Create a Note</h4>
@@ -1842,6 +1874,19 @@ body.form-modal-open {
           </div>
           <div id="folderPosts"></div>
         </div>
+      </div>
+
+      <div id="hiddenPostsPanel" class="card hidden">
+        <div class="folder-card-header">
+          <h4>Hidden Posts</h4>
+          <div class="folder-actions">
+            <button class="secondary small-action-btn" onclick="toggleHiddenPostsPanel(false)">Close</button>
+          </div>
+        </div>
+        <div style="color:var(--text-secondary); font-size:13px; margin-bottom:10px; line-height:1.4;">
+          These posts are only hidden from your Feed. They are not deleted and other users can still see them if they have access.
+        </div>
+        <div id="hiddenPostsList"></div>
       </div>
       
       <div class="card">
@@ -2693,7 +2738,7 @@ function switchView(viewId, btnToken) {
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
-  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); loadProfileBio(); updateDashboardStats(); }
+  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); loadHiddenPosts(); loadProfileBio(); updateDashboardStats(); }
 }
 
 function toggleFilterForm(forceShow = null) {
@@ -3105,6 +3150,45 @@ async function toggleBookmarkNote(id, event) {
   loadFeed(); updateDashboardStats(); loadProfilePosts();
 }
 
+async function hideFeedPost(id, event) {
+  if (event) event.stopPropagation();
+  if (!currentUser) return;
+
+  await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, {
+    method: "PUT",
+    body: "true"
+  });
+
+  if (currentActiveNoteId === id) {
+    closeNoteModal();
+  }
+
+  loadFeed();
+  loadHiddenPosts();
+  showToast("Post hidden from your feed.");
+}
+
+async function unhideFeedPost(id, event) {
+  if (event) event.stopPropagation();
+  if (!currentUser) return;
+
+  await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, { method: "DELETE" });
+
+  await loadHiddenPosts();
+  loadFeed();
+  showToast("Post is back in your feed.");
+}
+
+async function deleteHiddenFeedReference(id, event) {
+  if (event) event.stopPropagation();
+  if (!currentUser) return;
+
+  await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, { method: "DELETE" });
+  await loadHiddenPosts();
+  loadFeed();
+  showToast("Removed from hidden posts list.");
+}
+
 async function deleteNote(id, event){
   if(event) event.stopPropagation(); 
   
@@ -3292,6 +3376,8 @@ async function loadFeed(){
   let globalSearch = (document.getElementById("globalSearchInput")?.value || "").trim().toLowerCase();
   let savedRes = await fetch(DB_URL+`/users/${currentUser}/savedNotes.json`);
   let savedNotes = await savedRes.json() || {};
+  let hiddenRes = await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts.json`);
+  let hiddenFeedPosts = await hiddenRes.json() || {};
   let nextFeed = document.createDocumentFragment();
   let renderedCount = 0;
   let entries = Object.entries(notes||{}).sort((a,b)=>Number(b[0]) - Number(a[0]));
@@ -3304,6 +3390,7 @@ async function loadFeed(){
     let isSharedPrivate=n.privacy==="private" && n.sharedWith && n.sharedWith[currentUser];
 
     if(!(isOwner || (n.privacy==="public"&&isFriend) || isSharedPrivate)) continue;
+    if (hiddenFeedPosts[id]) continue;
     if (feedMode === "saved" && !savedNotes[id]) continue;
     if (feedMode === "mine" && !isOwner) continue;
 
@@ -3340,6 +3427,7 @@ async function loadFeed(){
       <div class="post-top-actions">
         <button class="post-top-btn" onclick="event.stopPropagation(); copyNotePost('${id}', event)" title="Copy">📋</button>
         <button class="post-top-btn" onclick="event.stopPropagation(); toggleBookmarkNote('${id}', event)" title="Save">🔖</button>
+        <button class="post-top-btn" onclick="event.stopPropagation(); hideFeedPost('${id}', event)" title="Hide from my feed">🙈</button>
         ${isOwner ? `<button class="post-top-btn" onclick="event.stopPropagation(); openEditNoteModal('${id}', event)" title="Edit">✏️</button>` : ""}
         ${isOwner ? `<button class="post-top-btn post-del-btn" onclick="event.stopPropagation(); deleteNote('${id}', event)" title="Delete">🗑️</button>` : ""}
       </div>
@@ -3536,6 +3624,125 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
   if (loadToken !== profileLoadToken || activePrivacy !== profileActivePrivacy) return;
   lastProfilePostsSignature = profileSignature;
   target.replaceChildren(nextProfilePosts);
+}
+
+function toggleHiddenPostsPanel(forceOpen = null) {
+  const panel = document.getElementById("hiddenPostsPanel");
+  if (!panel) return;
+
+  const shouldOpen = forceOpen === null ? panel.classList.contains("hidden") : forceOpen;
+  panel.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) {
+    loadHiddenPosts();
+  }
+}
+
+async function canCurrentUserSeeNote(note) {
+  if (!note || !currentUser) return false;
+  if (note.owner === currentUser) return true;
+  if ((note.privacy || "public") === "private") {
+    return !!(note.sharedWith && note.sharedWith[currentUser]);
+  }
+
+  const friendRes = await fetch(DB_URL+`/users/${currentUser}/friends/${note.owner}.json`);
+  return !!(await friendRes.json());
+}
+
+async function openHiddenPostFromList(noteId, event) {
+  if (event) event.stopPropagation();
+
+  const noteRes = await fetch(DB_URL+`/notes/${noteId}.json`);
+  const note = await noteRes.json();
+  if (!note) {
+    showCustomAlert("This post no longer exists.", "Hidden Post");
+    await loadHiddenPosts();
+    return;
+  }
+
+  if (!(await canCurrentUserSeeNote(note))) {
+    showCustomAlert("You no longer have access to this hidden post.", "Hidden Post");
+    await loadHiddenPosts();
+    return;
+  }
+
+  const ownerRes = await fetch(DB_URL+`/users/${note.owner}.json`);
+  const ownerData = await ownerRes.json() || {};
+  openNoteModal(noteId, note, ownerData.avatar || "😀", ownerData.displayName || note.owner);
+}
+
+async function loadHiddenPosts() {
+  if (!currentUser) return;
+
+  const list = document.getElementById("hiddenPostsList");
+  if (!list) return;
+
+  const hiddenRes = await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts.json`);
+  const hiddenPosts = await hiddenRes.json() || {};
+  const hiddenIds = Object.keys(hiddenPosts).sort((a, b) => Number(b) - Number(a));
+
+  if (hiddenIds.length === 0) {
+    list.innerHTML = `<div class="profile-empty">No hidden posts yet. Use the 🙈 icon on Feed posts to hide them here.</div>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const noteId of hiddenIds) {
+    const noteRes = await fetch(DB_URL+`/notes/${noteId}.json`);
+    const note = await noteRes.json();
+
+    const row = document.createElement("div");
+    row.className = "hidden-post-row";
+
+    if (!note) {
+      row.innerHTML = `
+        <div class="hidden-post-title">Post no longer exists</div>
+        <div class="hidden-post-preview">This hidden post was deleted by its owner.</div>
+        <div class="hidden-post-actions">
+          <button class="danger small-action-btn" onclick="deleteHiddenFeedReference('${noteId}', event)">Remove from List</button>
+        </div>
+      `;
+      fragment.appendChild(row);
+      continue;
+    }
+
+    const canView = await canCurrentUserSeeNote(note);
+    const ownerRes = await fetch(DB_URL+`/users/${note.owner}.json`);
+    const ownerData = await ownerRes.json() || {};
+    const authorDisplayName = ownerData.displayName || note.owner;
+    const preview = note.text || (note.attachment ? "Image post" : "No post text");
+    const title = note.title || "Untitled post";
+    const meta = `${ownerData.avatar || "😀"} ${authorDisplayName} (@${note.owner}) • ${formatDateTime(note.createdAt || noteId)}`;
+
+    if (!canView) {
+      row.innerHTML = `
+        <div class="hidden-post-title">${escapeHTML(title)}</div>
+        <div class="hidden-post-preview">You no longer have access to this hidden post.</div>
+        <div class="hidden-post-meta">${escapeHTML(meta)}</div>
+        <div class="hidden-post-actions">
+          <button class="danger small-action-btn" onclick="deleteHiddenFeedReference('${noteId}', event)">Remove from List</button>
+        </div>
+      `;
+      fragment.appendChild(row);
+      continue;
+    }
+
+    row.onclick = () => openHiddenPostFromList(noteId);
+    row.innerHTML = `
+      <div class="hidden-post-title">${escapeHTML(title)}</div>
+      <div class="hidden-post-preview">${escapeHTML(String(preview).slice(0, 160))}${String(preview).length > 160 ? "..." : ""}</div>
+      <div class="hidden-post-meta">${escapeHTML(meta)}</div>
+      <div class="hidden-post-actions">
+        <button class="secondary small-action-btn" onclick="openHiddenPostFromList('${noteId}', event)">Open</button>
+        <button class="copy-btn small-action-btn" onclick="copyNotePost('${noteId}', event)">📋 Copy</button>
+        <button class="small-action-btn" onclick="unhideFeedPost('${noteId}', event)">Unhide</button>
+      </div>
+    `;
+    fragment.appendChild(row);
+  }
+
+  list.replaceChildren(fragment);
 }
 
 function toggleFoldersPanel(forceOpen = null) {
@@ -4483,6 +4690,7 @@ function loadAll(){
   loadRequests();
   loadChatFriends();
   loadProfilePosts();
+  loadHiddenPosts();
   scanNotifications();
 }
 
@@ -4510,6 +4718,7 @@ setInterval(async()=>{
   if(document.getElementById('view-profile').classList.contains('active')) {
     loadProfilePosts();
     loadFolders();
+    loadHiddenPosts();
   }
 
   scanNotifications();
@@ -4564,6 +4773,7 @@ async function removeAccountData(username) {
 
     for (const noteId of ownedNoteIds) {
       userCleanupRequests.push(fetch(DB_URL + `/users/${otherUsername}/savedNotes/${noteId}.json`, { method: "DELETE" }));
+      userCleanupRequests.push(fetch(DB_URL + `/users/${otherUsername}/hiddenFeedPosts/${noteId}.json`, { method: "DELETE" }));
     }
 
     userCleanupRequests.push(fetch(DB_URL + `/chats/${chatId(username, otherUsername)}.json`, { method: "DELETE" }));
