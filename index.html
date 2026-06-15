@@ -430,37 +430,6 @@ body.nav-hidden .nav-toggle {
   padding: 6px 12px;
   font-size: 12px;
 }
-.hidden-post-row {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-.hidden-post-title {
-  font-weight: 800;
-  margin-bottom: 4px;
-  overflow-wrap: anywhere;
-}
-.hidden-post-preview {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  margin-bottom: 8px;
-}
-.hidden-post-meta {
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-bottom: 10px;
-}
-.hidden-post-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 .avatar { font-size: 32px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 
@@ -712,9 +681,27 @@ body.chat-open .nav-toggle {
 .msg-wrapper.me .msg { background: var(--msg-me); color: var(--msg-me-text); border-bottom-right-radius: 4px; }
 .msg-wrapper.them .msg { background: var(--msg-them); color: var(--msg-them-text); border-bottom-left-radius: 4px; }
 
-/* GIF IMAGE RENDERING INSIDE MESSAGES */
-.msg img.chat-gif-view {
-  max-width: 100%; display: block; border-radius: 8px; margin-top: 4px;
+/* PHOTO/GIF/STICKER MEDIA RENDERING INSIDE MESSAGES */
+.msg img.chat-media-view {
+  max-width: 100%;
+  max-height: 260px;
+  display: block;
+  border-radius: 10px;
+  margin-top: 4px;
+  object-fit: contain;
+}
+.chat-media-caption {
+  font-size: 11px;
+  display: block;
+  opacity: 0.72;
+  margin-bottom: 4px;
+}
+.chat-media-link {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
 }
 
 .msg-del-btn {
@@ -722,6 +709,74 @@ body.chat-open .nav-toggle {
   font-size: 12px; opacity: 0; transition: opacity 0.2s; color: var(--danger);
 }
 .msg-wrapper:hover .msg-del-btn { opacity: 1; }
+
+.msg-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 75%;
+}
+.msg-wrapper.me .msg-content-stack { align-items: flex-end; }
+.msg-wrapper.them .msg-content-stack { align-items: flex-start; }
+.msg-content-stack .msg { max-width: 100%; }
+.msg-time {
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding: 0 6px;
+  line-height: 1.2;
+}
+.msg-reaction-btn {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  opacity: 0.8;
+}
+.msg-reaction-btn:hover { background: var(--border-color); color: var(--text-primary); opacity: 1; }
+.msg-wrapper:hover .msg-reaction-btn { opacity: 1; }
+.reaction-picker {
+  position: fixed;
+  z-index: 6000;
+  display: none;
+  gap: 4px;
+  padding: 7px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.22);
+  animation: softPop 0.16s ease both;
+}
+.reaction-picker.show { display: flex; }
+.reaction-picker button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 20px;
+}
+.reaction-picker button:hover { background: var(--bg-primary); transform: translateY(-2px) scale(1.06); }
+.msg-reactions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 0 4px;
+}
+.msg-reaction-pill {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+}
 
 .chat-input-area {
   padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -732,18 +787,30 @@ body.chat-open .nav-toggle {
 .chat-input-area textarea { resize: none; min-height: 42px; max-height: 110px; }
 .chat-input-area button { height: 42px; flex-shrink: 0; }
 
-/* GIF DRAWER LAYOUT */
-.gif-drawer {
-  display: none; flex-direction: column; background: var(--bg-primary);
-  border-top: 1px solid var(--border-color); max-height: 155px; overflow-y: auto; padding: 10px;
+/* PHOTO ATTACHMENT OPTIONS INSIDE CHAT */
+.photo-options-drawer {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  padding: 10px;
 }
-.gif-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+.photo-options-drawer.show { display: flex; }
+.photo-option-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
-.gif-grid img {
-  width: 100%; height: 65px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform 0.1s;
+.photo-option-row button {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 12px;
 }
-.gif-grid img:hover { transform: scale(1.04); }
+@media (max-width: 380px) {
+  .photo-option-row { grid-template-columns: 1fr; }
+}
 
 /* PROFILE TAB */
 .profile-tabs {
@@ -1876,15 +1943,16 @@ body.form-modal-open {
         </div>
       </div>
 
-      <div id="hiddenPostsPanel" class="card hidden">
+      <div id="hiddenPostsPanel" class="card folder-card hidden">
         <div class="folder-card-header">
-          <h4>Hidden Posts</h4>
+          <h4>🙈 Hidden Posts</h4>
           <div class="folder-actions">
+            <button class="secondary small-action-btn" onclick="loadHiddenPostsList()">↻ Refresh</button>
             <button class="secondary small-action-btn" onclick="toggleHiddenPostsPanel(false)">Close</button>
           </div>
         </div>
-        <div style="color:var(--text-secondary); font-size:13px; margin-bottom:10px; line-height:1.4;">
-          These posts are only hidden from your Feed. They are not deleted and other users can still see them if they have access.
+        <div style="color:var(--text-secondary); font-size:13px; line-height:1.4; margin-bottom:10px;">
+          These posts are hidden only from your Feed. The original posts are not deleted.
         </div>
         <div id="hiddenPostsList"></div>
       </div>
@@ -1933,14 +2001,20 @@ body.form-modal-open {
       <div id="typingStatus" class="typing"></div>
       <div id="messages"></div>
       
-      <div class="gif-drawer" id="gifDrawerBox">
-        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; color: var(--text-secondary);">Select a Trending GIF:</div>
-        <div class="gif-grid" id="gifSelectionGrid"></div>
+      <div class="photo-options-drawer" id="photoOptionsDrawer">
+        <div style="font-size: 12px; font-weight: bold; color: var(--text-secondary);">Send a photo</div>
+        <div class="photo-option-row">
+          <button class="small-action-btn" onclick="triggerChatPhotoInput('camera')">📷 Capture</button>
+          <button class="small-action-btn" onclick="triggerChatPhotoInput('album')">🖼️ Album</button>
+          <button class="secondary small-action-btn" onclick="togglePhotoOptions(false)">Cancel</button>
+        </div>
+        <input type="file" id="chatCameraInput" accept="image/*" capture="environment" onchange="handleChatPhotoInput(event, 'camera')" hidden>
+        <input type="file" id="chatAlbumInput" accept="image/*" onchange="handleChatPhotoInput(event, 'album')" hidden>
       </div>
 
       <div class="chat-input-area">
-        <button class="secondary" onclick="toggleGifDrawer()" style="height: 42px; padding: 0 12px;" title="Choose GIF">🎬</button>
-        <textarea id="chatInput" placeholder="Type message..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
+        <button class="secondary" onclick="togglePhotoOptions()" style="height: 42px; padding: 0 12px;" title="Send photo">📷</button>
+        <textarea id="chatInput" placeholder="Type message, GIF/sticker link, or emoji..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
@@ -2064,6 +2138,7 @@ body.form-modal-open {
 </div>
 
 <div class="toast-stack" id="toastStack"></div>
+<div class="reaction-picker" id="chatReactionPicker"></div>
 
 <script>
 const DB_URL = "https://johnshedb-233f8-default-rtdb.firebaseio.com";
@@ -2088,6 +2163,8 @@ let toastCounter = 0;
 let notificationItems = [];
 let lastNotificationSignature = "";
 let notificationScanInProgress = false;
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+let activeReactionMessageId = null;
 
 function setBottomNavHidden(isHidden) {
   const toggleBtn = document.getElementById("navToggleBtn");
@@ -2108,17 +2185,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setBottomNavHidden(localStorage.getItem("bottomNavHidden") === "true");
 });
 
-// Dynamic visual looping items for chat configurations
-const CHAT_GIF_COLLECTION = [
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6cmN2bWp0cHZ6cDJ6Ym41bnh6YmswN3Z0MWhmczFmNnp0ZTAwZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3ntq5Fx7U9NAA/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHg1cjZ0MmsxZDV3dWZ3Ym9ubXJmcXJ0dm93YnU4NXAwdjZhcTVmciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cuPm4b8Oas9B6/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHhhZmdwMzd6dHAyYjhhN2N4a3M4MWpydDZvMHF5b2kyeWp1OTFhMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l3q2zVr6cu95nF6O4/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3YwZDVvN3I1N2YyNDM4Mzd0ZnIxeWh1cHplNHV6N3cyYWU3a216NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BcMJYctqn_GY4gXvR5/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzhwMWw4MGVpZWt4MTd6dnZobTh3OTZleW8zYnF0YTBndjZ0ZXByciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/t3s36s89PxH8OmcSIv/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOXA3OHhhODgzdTZrcmhpYWN0cnF0ZmpsaXhsbzYwMzA2N2U2MnR1NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26gR0YFZxW5Y1Ruk0/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnAydnJzdDhrMmJpZHJidmdtcDN5NXgzYXRka3AxdTFqbnZhcW9ubyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/S9oNGCw56GoJQA66Zs/giphy.gif",
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmZud2V1ODJmZnV3a3d5eGF6azVhcTJ5dzV5d2w4NXZkMmsxeDVrMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/5ntdy5qmgfRJTWNYzV/giphy.gif"
-];
+// Chat photo upload and text media support uses the user's camera/album plus normal message text.
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -2738,7 +2805,7 @@ function switchView(viewId, btnToken) {
   if(viewId === 'feed') loadFeed();
   if(viewId === 'friends') { loadFriends(); loadRequests(); }
   if(viewId === 'messages') loadChatFriends();
-  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); loadHiddenPosts(); loadProfileBio(); updateDashboardStats(); }
+  if(viewId === 'profile') { loadProfilePosts(); loadFolders(); loadProfileBio(); loadHiddenPostsList(); updateDashboardStats(); }
 }
 
 function toggleFilterForm(forceShow = null) {
@@ -2876,7 +2943,6 @@ async function login(){
     loadAll();
     loadProfileBio();
     updateDashboardStats();
-    buildGifDrawerGrid();
   });
 }
 
@@ -3152,41 +3218,141 @@ async function toggleBookmarkNote(id, event) {
 
 async function hideFeedPost(id, event) {
   if (event) event.stopPropagation();
-  if (!currentUser) return;
+  if (!currentUser || !id) return;
 
   await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, {
     method: "PUT",
     body: "true"
   });
 
-  if (currentActiveNoteId === id) {
-    closeNoteModal();
-  }
-
+  showToast("Post hidden from your Feed.");
   loadFeed();
-  loadHiddenPosts();
-  showToast("Post hidden from your feed.");
+  loadHiddenPostsList();
 }
 
 async function unhideFeedPost(id, event) {
   if (event) event.stopPropagation();
-  if (!currentUser) return;
+  if (!currentUser || !id) return;
 
   await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, { method: "DELETE" });
-
-  await loadHiddenPosts();
+  showToast("Post restored to your Feed.");
   loadFeed();
-  showToast("Post is back in your feed.");
+  loadHiddenPostsList();
 }
 
-async function deleteHiddenFeedReference(id, event) {
+function toggleHiddenPostsPanel(forceOpen = null) {
+  const panel = document.getElementById("hiddenPostsPanel");
+  if (!panel) return;
+
+  const shouldOpen = forceOpen === null ? panel.classList.contains("hidden") : forceOpen;
+  panel.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) loadHiddenPostsList();
+}
+
+async function removeUnavailableHiddenPost(id, event) {
   if (event) event.stopPropagation();
-  if (!currentUser) return;
+  if (!currentUser || !id) return;
 
   await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts/${id}.json`, { method: "DELETE" });
-  await loadHiddenPosts();
-  loadFeed();
-  showToast("Removed from hidden posts list.");
+  await loadHiddenPostsList();
+}
+
+async function loadHiddenPostsList() {
+  if (!currentUser) return;
+
+  const list = document.getElementById("hiddenPostsList");
+  if (!list) return;
+
+  const hiddenRes = await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts.json`);
+  const hiddenPosts = await hiddenRes.json() || {};
+  const ids = Object.keys(hiddenPosts).sort((a, b) => Number(b) - Number(a));
+
+  if (ids.length === 0) {
+    list.innerHTML = `<div class="folder-empty">No hidden posts yet. Tap 🙈 on a Feed post to hide it here.</div>`;
+    return;
+  }
+
+  const notesRes = await fetch(DB_URL+"/notes.json");
+  const notes = await notesRes.json() || {};
+  const friendsRes = await fetch(DB_URL+`/users/${currentUser}/friends.json`);
+  const friends = await friendsRes.json() || {};
+  const fragment = document.createDocumentFragment();
+
+  for (const noteId of ids) {
+    const note = notes[noteId];
+
+    if (!note) {
+      const row = document.createElement("div");
+      row.className = "folder-row";
+      row.innerHTML = `
+        <div class="folder-info">
+          <div class="folder-name">Unavailable post</div>
+          <div class="folder-count">This post may have been deleted.</div>
+        </div>
+        <div class="folder-actions">
+          <button class="danger small-action-btn" onclick="removeUnavailableHiddenPost('${noteId}', event)">Remove</button>
+        </div>
+      `;
+      fragment.appendChild(row);
+      continue;
+    }
+
+    const isOwner = note.owner === currentUser;
+    const isFriend = friends[note.owner];
+    const isSharedPrivate = note.privacy === "private" && note.sharedWith && note.sharedWith[currentUser];
+    const canOpen = isOwner || (note.privacy === "public" && isFriend) || isSharedPrivate;
+
+    let userRes = await fetch(DB_URL+`/users/${note.owner}.json`);
+    let user = await userRes.json() || {};
+    const authorDisplayName = user.displayName || note.owner;
+    const authorAvatar = user.avatar || "😀";
+    const titleValue = note.title || "Untitled post";
+    const textValue = String(note.text || "").trim();
+
+    const box = document.createElement("div");
+    box.className = `folder-mini-note ${getNoteAccentClass(note)}`;
+    if (canOpen) box.onclick = () => openNoteModal(noteId, note, authorAvatar, authorDisplayName);
+
+    box.innerHTML = `
+      <div class="note-header" style="margin-bottom:8px;">
+        <span class="avatar">${escapeHTML(authorAvatar)}</span>
+        <div>
+          <b>${escapeHTML(authorDisplayName)}</b> <span style="font-size:12px; color:var(--text-secondary);">@${escapeHTML(note.owner)}</span><br>
+          <span style="font-size:12px; color:var(--text-secondary);">Hidden ${escapeHTML(formatDateTime(note.createdAt || noteId))}</span>
+        </div>
+      </div>
+      <div class="folder-mini-title">${escapeHTML(titleValue)}</div>
+      <div class="folder-mini-text">${escapeHTML(textValue || "No text content.")}</div>
+      <div class="folder-active-actions" style="margin-top:10px;">
+        ${canOpen ? `<button class="secondary small-action-btn hidden-open-btn">Open</button>` : ""}
+        ${canOpen ? `<button class="copy-btn small-action-btn hidden-copy-btn">📋 Copy</button>` : ""}
+        <button class="small-action-btn hidden-unhide-btn">Unhide</button>
+      </div>
+    `;
+
+    const openBtn = box.querySelector(".hidden-open-btn");
+    if (openBtn) {
+      openBtn.onclick = (event) => {
+        event.stopPropagation();
+        openNoteModal(noteId, note, authorAvatar, authorDisplayName);
+      };
+    }
+
+    const copyBtn = box.querySelector(".hidden-copy-btn");
+    if (copyBtn) {
+      copyBtn.onclick = (event) => copyNotePost(noteId, event);
+    }
+
+    const unhideBtn = box.querySelector(".hidden-unhide-btn");
+    if (unhideBtn) {
+      unhideBtn.onclick = (event) => unhideFeedPost(noteId, event);
+    }
+
+    fragment.appendChild(box);
+  }
+
+  list.replaceChildren(fragment);
 }
 
 async function deleteNote(id, event){
@@ -3222,6 +3388,7 @@ async function like(id, event){
 
   loadFeed();
   loadProfilePosts();
+  loadHiddenPostsList();
   scanNotifications();
   if(currentActiveNoteId === id) {
     setTimeout(() => syncModalDetails(id), 100);
@@ -3385,12 +3552,13 @@ async function loadFeed(){
   if(loadToken !== feedLoadToken) return;
 
   for(let [id,n] of entries){
+    if (hiddenFeedPosts[id]) continue;
+
     let isOwner=n.owner===currentUser;
     let isFriend=friends[n.owner];
     let isSharedPrivate=n.privacy==="private" && n.sharedWith && n.sharedWith[currentUser];
 
     if(!(isOwner || (n.privacy==="public"&&isFriend) || isSharedPrivate)) continue;
-    if (hiddenFeedPosts[id]) continue;
     if (feedMode === "saved" && !savedNotes[id]) continue;
     if (feedMode === "mine" && !isOwner) continue;
 
@@ -3427,7 +3595,7 @@ async function loadFeed(){
       <div class="post-top-actions">
         <button class="post-top-btn" onclick="event.stopPropagation(); copyNotePost('${id}', event)" title="Copy">📋</button>
         <button class="post-top-btn" onclick="event.stopPropagation(); toggleBookmarkNote('${id}', event)" title="Save">🔖</button>
-        <button class="post-top-btn" onclick="event.stopPropagation(); hideFeedPost('${id}', event)" title="Hide from my feed">🙈</button>
+        <button class="post-top-btn" onclick="event.stopPropagation(); hideFeedPost('${id}', event)" title="Hide from my Feed">🙈</button>
         ${isOwner ? `<button class="post-top-btn" onclick="event.stopPropagation(); openEditNoteModal('${id}', event)" title="Edit">✏️</button>` : ""}
         ${isOwner ? `<button class="post-top-btn post-del-btn" onclick="event.stopPropagation(); deleteNote('${id}', event)" title="Delete">🗑️</button>` : ""}
       </div>
@@ -3624,125 +3792,6 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
   if (loadToken !== profileLoadToken || activePrivacy !== profileActivePrivacy) return;
   lastProfilePostsSignature = profileSignature;
   target.replaceChildren(nextProfilePosts);
-}
-
-function toggleHiddenPostsPanel(forceOpen = null) {
-  const panel = document.getElementById("hiddenPostsPanel");
-  if (!panel) return;
-
-  const shouldOpen = forceOpen === null ? panel.classList.contains("hidden") : forceOpen;
-  panel.classList.toggle("hidden", !shouldOpen);
-
-  if (shouldOpen) {
-    loadHiddenPosts();
-  }
-}
-
-async function canCurrentUserSeeNote(note) {
-  if (!note || !currentUser) return false;
-  if (note.owner === currentUser) return true;
-  if ((note.privacy || "public") === "private") {
-    return !!(note.sharedWith && note.sharedWith[currentUser]);
-  }
-
-  const friendRes = await fetch(DB_URL+`/users/${currentUser}/friends/${note.owner}.json`);
-  return !!(await friendRes.json());
-}
-
-async function openHiddenPostFromList(noteId, event) {
-  if (event) event.stopPropagation();
-
-  const noteRes = await fetch(DB_URL+`/notes/${noteId}.json`);
-  const note = await noteRes.json();
-  if (!note) {
-    showCustomAlert("This post no longer exists.", "Hidden Post");
-    await loadHiddenPosts();
-    return;
-  }
-
-  if (!(await canCurrentUserSeeNote(note))) {
-    showCustomAlert("You no longer have access to this hidden post.", "Hidden Post");
-    await loadHiddenPosts();
-    return;
-  }
-
-  const ownerRes = await fetch(DB_URL+`/users/${note.owner}.json`);
-  const ownerData = await ownerRes.json() || {};
-  openNoteModal(noteId, note, ownerData.avatar || "😀", ownerData.displayName || note.owner);
-}
-
-async function loadHiddenPosts() {
-  if (!currentUser) return;
-
-  const list = document.getElementById("hiddenPostsList");
-  if (!list) return;
-
-  const hiddenRes = await fetch(DB_URL+`/users/${currentUser}/hiddenFeedPosts.json`);
-  const hiddenPosts = await hiddenRes.json() || {};
-  const hiddenIds = Object.keys(hiddenPosts).sort((a, b) => Number(b) - Number(a));
-
-  if (hiddenIds.length === 0) {
-    list.innerHTML = `<div class="profile-empty">No hidden posts yet. Use the 🙈 icon on Feed posts to hide them here.</div>`;
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-
-  for (const noteId of hiddenIds) {
-    const noteRes = await fetch(DB_URL+`/notes/${noteId}.json`);
-    const note = await noteRes.json();
-
-    const row = document.createElement("div");
-    row.className = "hidden-post-row";
-
-    if (!note) {
-      row.innerHTML = `
-        <div class="hidden-post-title">Post no longer exists</div>
-        <div class="hidden-post-preview">This hidden post was deleted by its owner.</div>
-        <div class="hidden-post-actions">
-          <button class="danger small-action-btn" onclick="deleteHiddenFeedReference('${noteId}', event)">Remove from List</button>
-        </div>
-      `;
-      fragment.appendChild(row);
-      continue;
-    }
-
-    const canView = await canCurrentUserSeeNote(note);
-    const ownerRes = await fetch(DB_URL+`/users/${note.owner}.json`);
-    const ownerData = await ownerRes.json() || {};
-    const authorDisplayName = ownerData.displayName || note.owner;
-    const preview = note.text || (note.attachment ? "Image post" : "No post text");
-    const title = note.title || "Untitled post";
-    const meta = `${ownerData.avatar || "😀"} ${authorDisplayName} (@${note.owner}) • ${formatDateTime(note.createdAt || noteId)}`;
-
-    if (!canView) {
-      row.innerHTML = `
-        <div class="hidden-post-title">${escapeHTML(title)}</div>
-        <div class="hidden-post-preview">You no longer have access to this hidden post.</div>
-        <div class="hidden-post-meta">${escapeHTML(meta)}</div>
-        <div class="hidden-post-actions">
-          <button class="danger small-action-btn" onclick="deleteHiddenFeedReference('${noteId}', event)">Remove from List</button>
-        </div>
-      `;
-      fragment.appendChild(row);
-      continue;
-    }
-
-    row.onclick = () => openHiddenPostFromList(noteId);
-    row.innerHTML = `
-      <div class="hidden-post-title">${escapeHTML(title)}</div>
-      <div class="hidden-post-preview">${escapeHTML(String(preview).slice(0, 160))}${String(preview).length > 160 ? "..." : ""}</div>
-      <div class="hidden-post-meta">${escapeHTML(meta)}</div>
-      <div class="hidden-post-actions">
-        <button class="secondary small-action-btn" onclick="openHiddenPostFromList('${noteId}', event)">Open</button>
-        <button class="copy-btn small-action-btn" onclick="copyNotePost('${noteId}', event)">📋 Copy</button>
-        <button class="small-action-btn" onclick="unhideFeedPost('${noteId}', event)">Unhide</button>
-      </div>
-    `;
-    fragment.appendChild(row);
-  }
-
-  list.replaceChildren(fragment);
 }
 
 function toggleFoldersPanel(forceOpen = null) {
@@ -4470,7 +4519,7 @@ async function openChat(user){
   currentChatUser=user;
   document.body.classList.add("chat-open");
   chatBox.style.display="flex";
-  document.getElementById('gifDrawerBox').style.display = 'none';
+  togglePhotoOptions(false);
   
   let targetUserRes = await fetch(DB_URL+`/users/${user}.json`);
   let targetUserData = await targetUserRes.json() || {};
@@ -4488,37 +4537,71 @@ function closeChat() {
   lastChatData = "";
 }
 
-// INLINE GIF SELECTION COMPONENT DRAWER
-function buildGifDrawerGrid() {
-  const grid = document.getElementById("gifSelectionGrid");
-  grid.innerHTML = "";
-  CHAT_GIF_COLLECTION.forEach(url => {
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "trending selection item loop";
-    img.onclick = () => sendGifMessage(url);
-    grid.appendChild(img);
-  });
+// CHAT PHOTO ATTACHMENTS
+function togglePhotoOptions(forceShow = null) {
+  const drawer = document.getElementById("photoOptionsDrawer");
+  if (!drawer) return;
+  const shouldShow = forceShow === null ? !drawer.classList.contains("show") : forceShow;
+  drawer.classList.toggle("show", shouldShow);
 }
 
-function toggleGifDrawer() {
-  const drawer = document.getElementById('gifDrawerBox');
-  drawer.style.display = (drawer.style.display === 'flex') ? 'none' : 'flex';
+function triggerChatPhotoInput(source = "album") {
+  const input = document.getElementById(source === "camera" ? "chatCameraInput" : "chatAlbumInput");
+  if (!input) return;
+  input.value = "";
+  input.click();
 }
 
-async function sendGifMessage(gifUrl) {
-  let id = Date.now();
-  let cid = chatId(currentUser, currentChatUser);
-  let text = `[GIF] ${gifUrl}`;
+function handleChatPhotoInput(event, source = "album") {
+  const input = event && event.target ? event.target : null;
+  const file = input && input.files ? input.files[0] : null;
+  if (!file) return;
+
+  if (!file.type || !file.type.startsWith("image/")) {
+    showCustomAlert("Please choose an image file only.", "Invalid File Type");
+    input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    await sendPhotoMessage(e.target.result, file.name || (source === "camera" ? "Captured photo" : "Photo"));
+    input.value = "";
+  };
+  reader.readAsDataURL(file);
+}
+
+async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
+  if (!currentChatUser || !photoDataUrl) return;
+
+  const id = Date.now();
+  const cid = chatId(currentUser, currentChatUser);
 
   await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
     method: "PUT",
-    body: JSON.stringify({ text, sender: currentUser, seen: false })
+    body: JSON.stringify({
+      text: `[PHOTO] ${fileName}`,
+      photo: photoDataUrl,
+      photoName: fileName,
+      sender: currentUser,
+      seen: false,
+      createdAt: id,
+      reactions: {}
+    })
   });
 
-  document.getElementById('gifDrawerBox').style.display = 'none';
+  togglePhotoOptions(false);
   loadMessages();
   scanNotifications();
+}
+
+function getDirectChatImageUrl(text) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  if (value.startsWith("data:image/")) return value;
+  if (/^https?:\/\/\S+\.(gif|png|jpe?g|webp)(\?\S*)?$/i.test(value)) return value;
+  if (/^https?:\/\/(media\.giphy\.com|i\.giphy\.com|c\.tenor\.com|media\.tenor\.com)\/\S+/i.test(value)) return value;
+  return "";
 }
 
 function handleChatInputKeydown(event) {
@@ -4540,14 +4623,200 @@ async function sendMessage(){
     body:JSON.stringify({
       text,
       sender:currentUser,
-      seen:false
+      seen:false,
+      createdAt:id,
+      reactions:{}
     })
   });
 
   chatInput.value="";
+  togglePhotoOptions(false);
   autoResizeTextarea(chatInput);
   loadMessages();
   scanNotifications();
+}
+
+
+function formatChatTimestamp(value) {
+  const date = new Date(Number(value) || Date.now());
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getReactionSummary(reactions = {}) {
+  const summary = [];
+  for (const emoji of CHAT_REACTION_EMOJIS) {
+    const users = reactions && reactions[emoji] ? Object.keys(reactions[emoji]) : [];
+    if (users.length > 0) summary.push({ emoji, count: users.length });
+  }
+  return summary;
+}
+
+function renderReactionPills(container, reactions = {}) {
+  if (!container) return;
+  const summary = getReactionSummary(reactions);
+  container.innerHTML = "";
+  container.style.display = summary.length ? "flex" : "none";
+
+  summary.forEach(item => {
+    const pill = document.createElement("span");
+    pill.className = "msg-reaction-pill";
+    pill.textContent = item.count > 1 ? `${item.emoji} ${item.count}` : item.emoji;
+    container.appendChild(pill);
+  });
+}
+
+function closeReactionPicker() {
+  const picker = document.getElementById("chatReactionPicker");
+  if (picker) picker.classList.remove("show");
+  activeReactionMessageId = null;
+}
+
+function openReactionPicker(msgId, event) {
+  if (event) event.stopPropagation();
+  const picker = document.getElementById("chatReactionPicker");
+  if (!picker) return;
+
+  if (activeReactionMessageId === msgId && picker.classList.contains("show")) {
+    closeReactionPicker();
+    return;
+  }
+
+  activeReactionMessageId = msgId;
+  picker.innerHTML = "";
+
+  CHAT_REACTION_EMOJIS.forEach(emoji => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = emoji;
+    btn.onclick = (emojiEvent) => reactToMessage(msgId, emoji, emojiEvent);
+    picker.appendChild(btn);
+  });
+
+  const rect = event && event.currentTarget ? event.currentTarget.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0 };
+  picker.classList.add("show");
+
+  const pickerWidth = picker.offsetWidth || 260;
+  const pickerHeight = picker.offsetHeight || 50;
+  const left = Math.min(Math.max(8, rect.left + (rect.width / 2) - (pickerWidth / 2)), window.innerWidth - pickerWidth - 8);
+  const top = Math.max(8, rect.top - pickerHeight - 8);
+
+  picker.style.left = `${left}px`;
+  picker.style.top = `${top}px`;
+}
+
+document.addEventListener("click", (event) => {
+  const picker = document.getElementById("chatReactionPicker");
+  if (!picker || !picker.classList.contains("show")) return;
+  if (picker.contains(event.target) || event.target.closest(".msg-reaction-btn")) return;
+  closeReactionPicker();
+});
+
+async function reactToMessage(msgId, emoji, event) {
+  if (event) event.stopPropagation();
+  if (!currentChatUser || !msgId || !emoji) return;
+
+  const cid = chatId(currentUser, currentChatUser);
+  const msgRes = await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`);
+  const message = await msgRes.json() || {};
+  const reactions = message.reactions || {};
+  const alreadyReacted = !!(reactions[emoji] && reactions[emoji][currentUser]);
+
+  const cleanup = [];
+  for (const existingEmoji of Object.keys(reactions)) {
+    if (reactions[existingEmoji] && reactions[existingEmoji][currentUser]) {
+      cleanup.push(fetch(DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${encodeURIComponent(existingEmoji)}/${currentUser}.json`, { method: "DELETE" }));
+    }
+  }
+  await Promise.all(cleanup);
+
+  if (!alreadyReacted) {
+    await fetch(DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${encodeURIComponent(emoji)}/${currentUser}.json`, {
+      method: "PUT",
+      body: "true"
+    });
+  }
+
+  closeReactionPicker();
+  loadMessages();
+}
+
+function renderChatMessageElement(msgId, m, existingWrapper = null) {
+  const isMe = m.sender === currentUser;
+  const wrapper = existingWrapper || document.createElement("div");
+  wrapper.className = "msg-wrapper " + (isMe ? "me" : "them");
+  wrapper.id = `msg-${msgId}`;
+  wrapper.innerHTML = "";
+
+  if (isMe) {
+    const delBtn = document.createElement("button");
+    delBtn.className = "msg-del-btn";
+    delBtn.type = "button";
+    delBtn.innerHTML = "🗑️";
+    delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(msgId); };
+    wrapper.appendChild(delBtn);
+  }
+
+  const stack = document.createElement("div");
+  stack.className = "msg-content-stack";
+
+  const bubble = document.createElement("div");
+  bubble.className = "msg";
+
+  const messageText = String(m.text || "");
+  const directImageUrl = getDirectChatImageUrl(messageText);
+  if (m.photo) {
+    bubble.innerHTML = `<span class="chat-media-caption">Sent photo</span><img src="${escapeHTML(m.photo)}" class="chat-media-view" alt="chat photo attachment">`;
+  } else if(messageText.startsWith("[GIF] ")) {
+    const cleanUrl = messageText.replace("[GIF] ", "");
+    bubble.innerHTML = `<span class="chat-media-caption">Sent animation</span><img src="${escapeHTML(cleanUrl)}" class="chat-media-view" alt="chat shared inline gif content">`;
+  } else if(directImageUrl) {
+    bubble.innerHTML = `<span class="chat-media-caption">Sent media link</span><img src="${escapeHTML(directImageUrl)}" class="chat-media-view" alt="chat shared media link"><span class="chat-media-link">${escapeHTML(messageText)}</span>`;
+  } else {
+    bubble.textContent = messageText;
+  }
+
+  if(isMe && m.seen) {
+    const seenEye = document.createElement("span");
+    seenEye.className = "seen-status";
+    seenEye.style.fontSize = "10px";
+    seenEye.style.marginLeft = "6px";
+    seenEye.innerText = "👁️";
+    bubble.appendChild(seenEye);
+  }
+
+  const time = document.createElement("div");
+  time.className = "msg-time";
+  time.textContent = formatChatTimestamp(m.createdAt || msgId);
+
+  const reactionPills = document.createElement("div");
+  reactionPills.className = "msg-reactions";
+  renderReactionPills(reactionPills, m.reactions || {});
+
+  stack.appendChild(bubble);
+  stack.appendChild(time);
+  stack.appendChild(reactionPills);
+
+  const reactBtn = document.createElement("button");
+  reactBtn.className = "msg-reaction-btn";
+  reactBtn.type = "button";
+  reactBtn.title = "React to message";
+  reactBtn.innerText = "+";
+  reactBtn.onclick = (event) => openReactionPicker(msgId, event);
+
+  if (isMe) {
+    wrapper.appendChild(stack);
+    wrapper.appendChild(reactBtn);
+  } else {
+    wrapper.appendChild(reactBtn);
+    wrapper.appendChild(stack);
+  }
+
+  return wrapper;
 }
 
 async function deleteMessage(msgId) {
@@ -4570,6 +4839,7 @@ async function loadMessages(){
 
   if(Object.keys(data).length === 0){ 
     messages.innerHTML="<div style='text-align:center; color:var(--text-secondary); margin-top:20px;'>No messages. Say Hello!</div>"; 
+    closeReactionPicker();
     return;
   }
 
@@ -4580,57 +4850,17 @@ async function loadMessages(){
   });
 
   let addedNewMessage = false;
+  const sortedEntries = Object.entries(data).sort((a, b) => Number(a[0]) - Number(b[0]));
 
-  for(let [id,m] of Object.entries(data)){
+  for(let [id,m] of sortedEntries){
     let existingMsg = document.getElementById(`msg-${id}`);
-    
+    let renderedMsg = renderChatMessageElement(id, m || {}, existingMsg);
+
     if(!existingMsg) {
-      let wrapper = document.createElement("div");
-      wrapper.className = "msg-wrapper " + (m.sender===currentUser?"me":"them");
-      wrapper.id = `msg-${id}`;
-
-      if(m.sender === currentUser) {
-        let delBtn = document.createElement("button");
-        delBtn.className = "msg-del-btn";
-        delBtn.innerHTML = "🗑️";
-        delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(id); };
-        wrapper.appendChild(delBtn);
-      }
-
-      let div=document.createElement("div");
-      div.className="msg";
-
-      if(m.text.startsWith("[GIF] ")) {
-        let cleanUrl = m.text.replace("[GIF] ", "");
-        div.innerHTML = `<span style="font-size:11px; display:block; opacity:0.6; margin-bottom:2px;">Sent animation</span><img src="${cleanUrl}" class="chat-gif-view" alt="chat shared inline gif content">`;
-      } else {
-        div.textContent = m.text;
-      }
-
-      if(m.sender===currentUser && m.seen) {
-        let seenEye = document.createElement("span");
-        seenEye.className = "seen-status";
-        seenEye.style.fontSize = "10px";
-        seenEye.style.marginLeft = "6px";
-        seenEye.innerText = "👁️";
-        div.appendChild(seenEye);
-      }
-
-      wrapper.appendChild(div);
-      messages.appendChild(wrapper);
+      messages.appendChild(renderedMsg);
       addedNewMessage = true;
-    } else {
-      if(m.sender===currentUser && m.seen) {
-        let msgBubble = existingMsg.querySelector(".msg");
-        if(msgBubble && !msgBubble.querySelector(".seen-status")) {
-          let seenEye = document.createElement("span");
-          seenEye.className = "seen-status";
-          seenEye.style.fontSize = "10px";
-          seenEye.style.marginLeft = "6px";
-          seenEye.innerText = "👁️";
-          msgBubble.appendChild(seenEye);
-        }
-      }
+    } else if (messages.lastElementChild !== renderedMsg) {
+      messages.appendChild(renderedMsg);
     }
 
     if(m.sender !== currentUser && !m.seen){
@@ -4690,7 +4920,6 @@ function loadAll(){
   loadRequests();
   loadChatFriends();
   loadProfilePosts();
-  loadHiddenPosts();
   scanNotifications();
 }
 
@@ -4718,7 +4947,7 @@ setInterval(async()=>{
   if(document.getElementById('view-profile').classList.contains('active')) {
     loadProfilePosts();
     loadFolders();
-    loadHiddenPosts();
+    loadHiddenPostsList();
   }
 
   scanNotifications();
