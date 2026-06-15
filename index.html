@@ -813,6 +813,75 @@ body.chat-open .nav-toggle {
   .photo-option-row { grid-template-columns: 1fr; }
 }
 
+
+/* GROUP CHAT CREATION */
+.group-chat-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+.group-friend-list {
+  display: grid;
+  gap: 6px;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+}
+.group-friend-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.group-friend-option:hover {
+  background: var(--border-color);
+}
+.group-friend-option input {
+  width: auto;
+  margin: 0;
+}
+.group-chat-section-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 12px 0 8px;
+}
+.group-member-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-owner-badge {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 800;
+}
+.group-chat-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.group-chat-actions button {
+  flex: 0 0 auto;
+}
+.msg-sender-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  padding: 0 4px 2px;
+}
+
 /* PROFILE TAB */
 .profile-tabs {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
@@ -1849,7 +1918,19 @@ body.form-modal-open {
 
     <div id="view-messages" class="view-panel">
       <div class="card">
-        <h4>Active Conversations</h4>
+        <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+          <h4 style="margin:0;">Active Conversations</h4>
+          <button class="small-action-btn" onclick="toggleGroupChatForm()">➕ Group Chat</button>
+        </div>
+        <div id="groupChatCreateForm" class="group-chat-form hidden">
+          <input id="groupChatNameInput" placeholder="Group chat name...">
+          <div style="font-size:12px; color:var(--text-secondary); font-weight:700;">Add friends to this group</div>
+          <div id="groupFriendSelector" class="group-friend-list"></div>
+          <div class="group-chat-actions">
+            <button class="secondary small-action-btn" onclick="toggleGroupChatForm(false)">Cancel</button>
+            <button class="small-action-btn" onclick="createGroupChat()">Create Group</button>
+          </div>
+        </div>
         <div id="chatFriends">No active chats</div>
       </div>
     </div>
@@ -2146,6 +2227,8 @@ const DB_URL = "https://johnshedb-233f8-default-rtdb.firebaseio.com";
 
 let currentUser=null, lastData="";
 let currentChatUser=null, lastChatData="";
+let currentChatType = "direct";
+let currentChatGroupId = null;
 let typingTimeout;
 let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
@@ -4168,7 +4251,7 @@ function renderNotificationBar(items) {
   if (!shell || !summary || !countBadge || !list) return;
 
   const total = items.reduce((sum, item) => sum + (item.count || 1), 0);
-  const chatTotal = items.filter(item => item.type === "chat").reduce((sum, item) => sum + (item.count || 1), 0);
+  const chatTotal = items.filter(item => item.type === "chat" || item.type === "groupChat").reduce((sum, item) => sum + (item.count || 1), 0);
   const noteTotal = total - chatTotal;
 
   setTabBadge("chatTabBadge", chatTotal);
@@ -4254,6 +4337,30 @@ async function scanNotifications() {
       }
     }
 
+
+    const groupRes = await fetch(DB_URL+"/groupChats.json");
+    const groups = await groupRes.json() || {};
+
+    for (const [groupId, group] of Object.entries(groups)) {
+      if (!group || !group.members || !group.members[currentUser]) continue;
+
+      const messagesData = group.messages || {};
+      const unreadIds = Object.entries(messagesData)
+        .filter(([id, msg]) => msg && msg.sender !== currentUser && !(msg.seenBy && msg.seenBy[currentUser]))
+        .map(([id]) => id);
+
+      if (unreadIds.length > 0) {
+        items.push({
+          type: "groupChat",
+          groupId,
+          count: unreadIds.length,
+          messageIds: unreadIds,
+          title: `👥 ${group.name || "Group Chat"}`,
+          text: `${unreadIds.length} unread group ${unreadIds.length === 1 ? "message" : "messages"}. Tap to open the group.`
+        });
+      }
+    }
+
     const notesRes = await fetch(DB_URL+"/notes.json");
     const notes = await notesRes.json() || {};
 
@@ -4329,6 +4436,15 @@ async function openNotificationItem(index) {
     return;
   }
 
+  if (item.type === "groupChat") {
+    switchView("messages");
+    await loadChatFriends();
+    await openGroupChat(item.groupId);
+    toggleNotificationPanel(false);
+    setTimeout(scanNotifications, 400);
+    return;
+  }
+
   const seen = getNotificationSeenState();
   if (item.type === "like") seen.likes[item.key] = true;
   if (item.type === "comment") seen.comments[item.key] = true;
@@ -4361,6 +4477,15 @@ async function markAllNotificationsRead() {
         await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
           method: "PATCH",
           body: JSON.stringify({ seen: true })
+        });
+      }
+    }
+
+    if (item.type === "groupChat" && item.groupId) {
+      for (const msgId of item.messageIds || []) {
+        await fetch(DB_URL+`/groupChats/${item.groupId}/messages/${msgId}/seenBy/${currentUser}.json`, {
+          method: "PUT",
+          body: "true"
         });
       }
     }
@@ -4427,29 +4552,143 @@ function chatId(u1,u2){
   return [u1,u2].sort().join("_");
 }
 
-async function loadChatFriends(){
-  let r = await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
-  let f = await r.json() || {};
+function getCurrentChatMessagesUrl() {
+  if (currentChatType === "group" && currentChatGroupId) {
+    return DB_URL+`/groupChats/${currentChatGroupId}/messages`;
+  }
 
-  if(!f || Object.keys(f).length === 0){
-    chatFriends.innerHTML = "<div style='color:var(--text-secondary); padding:10px;'>No friends yet. Add connections to chat!</div>";
+  if (currentChatUser) {
+    return DB_URL+`/chats/${chatId(currentUser,currentChatUser)}/messages`;
+  }
+
+  return "";
+}
+
+function getCurrentTypingUrl() {
+  if (currentChatType === "group" && currentChatGroupId) {
+    return DB_URL+`/groupChats/${currentChatGroupId}/typing`;
+  }
+
+  if (currentChatUser) {
+    return DB_URL+`/chats/${chatId(currentUser,currentChatUser)}/typing`;
+  }
+
+  return "";
+}
+
+function getCurrentDisplayName() {
+  const display = document.getElementById("userDisplay");
+  return (display && display.innerText ? display.innerText : currentUser) || currentUser;
+}
+
+function isCurrentGroupOwner(group = {}) {
+  return currentChatType === "group" && group && group.owner === currentUser;
+}
+
+function toggleGroupChatForm(forceOpen = null) {
+  const form = document.getElementById("groupChatCreateForm");
+  if (!form) return;
+
+  const shouldOpen = forceOpen === null ? form.classList.contains("hidden") : forceOpen;
+  form.classList.toggle("hidden", !shouldOpen);
+
+  if (shouldOpen) {
+    const nameInput = document.getElementById("groupChatNameInput");
+    if (nameInput) nameInput.value = "";
+    loadGroupFriendSelector();
+    setTimeout(() => nameInput?.focus(), 30);
+  }
+}
+
+async function loadGroupFriendSelector() {
+  const selector = document.getElementById("groupFriendSelector");
+  if (!selector || !currentUser) return;
+
+  const friendsRes = await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
+  const friends = await friendsRes.json() || {};
+  const friendNames = Object.keys(friends);
+
+  if (friendNames.length === 0) {
+    selector.innerHTML = `<div class="folder-empty">Add friends first before creating a group chat.</div>`;
     return;
   }
 
-  if(chatFriends.innerHTML.includes("No friends yet")) chatFriends.innerHTML = "";
+  selector.innerHTML = "";
+  for (const username of friendNames) {
+    const userRes = await fetch(DB_URL+`/users/${username}.json`);
+    const userData = await userRes.json() || {};
+    const label = document.createElement("label");
+    label.className = "group-friend-option";
+    label.innerHTML = `
+      <input type="checkbox" class="group-friend-checkbox" value="${escapeHTML(username)}">
+      <span>${escapeHTML(userData.avatar || "😀")} ${escapeHTML(userData.displayName || username)} <span style="color:var(--text-secondary);">@${escapeHTML(username)}</span></span>
+    `;
+    selector.appendChild(label);
+  }
+}
 
-  Array.from(chatFriends.children).forEach(child => {
-    if(child.id && !f[child.id.replace('chatuser-', '')]) child.remove();
+async function createGroupChat() {
+  const nameInput = document.getElementById("groupChatNameInput");
+  const name = nameInput ? nameInput.value.trim() : "";
+  const checked = Array.from(document.querySelectorAll(".group-friend-checkbox:checked")).map(input => input.value);
+
+  if (!name) {
+    showCustomAlert("Please enter a group chat name.", "Missing Group Name");
+    return;
+  }
+
+  if (checked.length === 0) {
+    showCustomAlert("Select at least one friend to add to the group chat.", "No Members Selected");
+    return;
+  }
+
+  const id = Date.now();
+  const members = { [currentUser]: true };
+  checked.forEach(username => { members[username] = true; });
+
+  await fetch(DB_URL+`/groupChats/${id}.json`, {
+    method: "PUT",
+    body: JSON.stringify({
+      name,
+      owner: currentUser,
+      createdAt: id,
+      members,
+      messages: {}
+    })
   });
 
-  for(let x in f){
-    let uRes = await fetch(DB_URL+"/users/"+x+".json");
-    let u = await uRes.json() || {};
-    let friendDisplayName = u.displayName || x;
+  toggleGroupChatForm(false);
+  await loadChatFriends();
+  showCustomAlert(`Group chat "${name}" has been created.`, "Group Created");
+}
 
-    let existingRow = document.getElementById(`chatuser-${x}`);
-    
-    if(!existingRow) {
+async function loadChatFriends(){
+  const container = document.getElementById("chatFriends");
+  if (!container || !currentUser) return;
+
+  const fragment = document.createDocumentFragment();
+
+  const directTitle = document.createElement("div");
+  directTitle.className = "group-chat-section-title";
+  directTitle.textContent = "Direct Messages";
+  fragment.appendChild(directTitle);
+
+  let r = await fetch(DB_URL+"/users/"+currentUser+"/friends.json");
+  let f = await r.json() || {};
+  const directFriends = Object.keys(f);
+
+  if(directFriends.length === 0){
+    const empty = document.createElement("div");
+    empty.style.color = "var(--text-secondary)";
+    empty.style.padding = "10px";
+    empty.textContent = "No friends yet. Add connections to chat!";
+    fragment.appendChild(empty);
+  } else {
+    for(let x of directFriends){
+      let uRes = await fetch(DB_URL+"/users/"+x+".json");
+      let u = await uRes.json() || {};
+      let friendDisplayName = u.displayName || x;
+
       let div = document.createElement("div");
       div.className = "chat-user-item";
       div.id = `chatuser-${x}`;
@@ -4493,19 +4732,76 @@ async function loadChatFriends(){
 
       div.appendChild(main);
       div.appendChild(actionGroup);
-      chatFriends.appendChild(div);
-    } else {
-      let nameLabel = existingRow.querySelector(".username-label");
-      if (nameLabel) nameLabel.innerText = friendDisplayName;
-
-      let dot = existingRow.querySelector(".online");
-      if (dot) {
-        dot.style.display = u.online ? "inline" : "none";
-      }
+      fragment.appendChild(div);
     }
   }
-}
 
+  const groupTitle = document.createElement("div");
+  groupTitle.className = "group-chat-section-title";
+  groupTitle.textContent = "Group Chats";
+  fragment.appendChild(groupTitle);
+
+  const groupsRes = await fetch(DB_URL+"/groupChats.json");
+  const groups = await groupsRes.json() || {};
+  const groupEntries = Object.entries(groups)
+    .filter(([groupId, group]) => group && group.members && group.members[currentUser])
+    .sort((a, b) => Number(b[1].updatedAt || b[1].createdAt || b[0]) - Number(a[1].updatedAt || a[1].createdAt || a[0]));
+
+  if (groupEntries.length === 0) {
+    const emptyGroup = document.createElement("div");
+    emptyGroup.style.color = "var(--text-secondary)";
+    emptyGroup.style.padding = "10px";
+    emptyGroup.textContent = "No group chats yet. Create one above.";
+    fragment.appendChild(emptyGroup);
+  } else {
+    for (const [groupId, group] of groupEntries) {
+      const members = Object.keys(group.members || {});
+      const memberPreview = members.slice(0, 4).map(username => username === currentUser ? "You" : `@${username}`).join(", ");
+      const extraCount = members.length > 4 ? ` +${members.length - 4} more` : "";
+
+      const div = document.createElement("div");
+      div.className = "chat-user-item";
+      div.id = `groupchat-${groupId}`;
+      div.onclick = () => openGroupChat(groupId);
+
+      const main = document.createElement("div");
+      main.className = "chat-user-main";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "chat-user-name";
+      nameSpan.innerHTML = `👥 ${escapeHTML(group.name || "Group Chat")} ${group.owner === currentUser ? '<span class="group-owner-badge">Owner</span>' : ""}`;
+
+      const subtitle = document.createElement("span");
+      subtitle.className = "group-member-preview";
+      subtitle.textContent = `${members.length} members • ${memberPreview}${extraCount}`;
+
+      main.appendChild(nameSpan);
+      main.appendChild(subtitle);
+
+      const actionGroup = document.createElement("div");
+      actionGroup.className = "chat-user-actions";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "conversation-delete-btn";
+      deleteBtn.type = "button";
+      deleteBtn.title = group.owner === currentUser ? "Delete group chat" : "Leave group chat";
+      deleteBtn.innerHTML = group.owner === currentUser ? "🗑️" : "🚪";
+      deleteBtn.onclick = (event) => deleteOrLeaveGroupChat(groupId, event);
+
+      const actionIndicator = document.createElement("span");
+      actionIndicator.innerText = "👥";
+
+      actionGroup.appendChild(deleteBtn);
+      actionGroup.appendChild(actionIndicator);
+
+      div.appendChild(main);
+      div.appendChild(actionGroup);
+      fragment.appendChild(div);
+    }
+  }
+
+  container.replaceChildren(fragment);
+}
 
 async function deleteConversation(user, event) {
   if (event) event.stopPropagation();
@@ -4532,8 +4828,44 @@ async function deleteConversation(user, event) {
 }
 
 function deleteCurrentConversation(event) {
+  if (currentChatType === "group" && currentChatGroupId) {
+    deleteOrLeaveGroupChat(currentChatGroupId, event);
+    return;
+  }
+
   if (!currentChatUser) return;
   deleteConversation(currentChatUser, event);
+}
+
+async function deleteOrLeaveGroupChat(groupId, event) {
+  if (event) event.stopPropagation();
+
+  const groupRes = await fetch(DB_URL+`/groupChats/${groupId}.json`);
+  const group = await groupRes.json();
+
+  if (!group) {
+    await loadChatFriends();
+    return;
+  }
+
+  if (group.owner === currentUser) {
+    showCustomConfirm(`Delete the group chat "${group.name || "Group Chat"}" for everyone?`, async () => {
+      await fetch(DB_URL+`/groupChats/${groupId}.json`, { method: "DELETE" });
+      if (currentChatType === "group" && currentChatGroupId === groupId) closeChat();
+      await loadChatFriends();
+      scanNotifications();
+      showCustomAlert("The group chat has been deleted.", "Group Deleted");
+    }, "Delete Group Chat");
+    return;
+  }
+
+  showCustomConfirm(`Leave the group chat "${group.name || "Group Chat"}"?`, async () => {
+    await fetch(DB_URL+`/groupChats/${groupId}/members/${currentUser}.json`, { method: "DELETE" });
+    if (currentChatType === "group" && currentChatGroupId === groupId) closeChat();
+    await loadChatFriends();
+    scanNotifications();
+    showCustomAlert("You left the group chat.", "Left Group");
+  }, "Leave Group Chat");
 }
 
 async function openChat(user){
@@ -4663,22 +4995,24 @@ async function handleChatPhotoInput(event, source = "album") {
 }
 
 async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
-  if (!currentChatUser || !photoDataUrl) return;
+  const messagesUrl = getCurrentChatMessagesUrl();
+  if (!messagesUrl || !photoDataUrl) return;
 
   const id = Date.now();
-  const cid = chatId(currentUser, currentChatUser);
   const payload = {
     type: "photo",
     text: `[PHOTO] ${fileName}`,
     photo: photoDataUrl,
     photoName: fileName,
     sender: currentUser,
-    seen: false,
+    senderName: getCurrentDisplayName(),
+    seen: currentChatType === "direct" ? false : undefined,
+    seenBy: currentChatType === "group" ? { [currentUser]: true } : undefined,
     createdAt: id,
     reactions: {}
   };
 
-  const response = await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
+  const response = await fetch(`${messagesUrl}/${id}.json`, {
     method: "PUT",
     body: JSON.stringify(payload)
   });
@@ -4686,6 +5020,13 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   if (!response.ok) {
     showCustomAlert("The photo was too large or could not be uploaded. Try a smaller image.", "Photo Failed");
     return;
+  }
+
+  if (currentChatType === "group" && currentChatGroupId) {
+    await fetch(DB_URL+`/groupChats/${currentChatGroupId}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ updatedAt: id })
+    });
   }
 
   togglePhotoOptions(false);
@@ -4713,19 +5054,30 @@ async function sendMessage(){
   let text=chatInput.value.trim();
   if(!text) return;
 
-  let id=Date.now();
-  let cid=chatId(currentUser,currentChatUser);
+  const messagesUrl = getCurrentChatMessagesUrl();
+  if (!messagesUrl) return;
 
-  await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
+  let id=Date.now();
+
+  await fetch(`${messagesUrl}/${id}.json`,{
     method:"PUT",
     body:JSON.stringify({
       text,
       sender:currentUser,
-      seen:false,
+      senderName:getCurrentDisplayName(),
+      seen: currentChatType === "direct" ? false : undefined,
+      seenBy: currentChatType === "group" ? { [currentUser]: true } : undefined,
       createdAt:id,
       reactions:{}
     })
   });
+
+  if (currentChatType === "group" && currentChatGroupId) {
+    await fetch(DB_URL+`/groupChats/${currentChatGroupId}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ updatedAt: id })
+    });
+  }
 
   chatInput.value="";
   togglePhotoOptions(false);
@@ -4816,10 +5168,12 @@ document.addEventListener("click", (event) => {
 
 async function reactToMessage(msgId, emoji, event) {
   if (event) event.stopPropagation();
-  if (!currentChatUser || !msgId || !emoji) return;
+  if (!msgId || !emoji) return;
 
-  const cid = chatId(currentUser, currentChatUser);
-  const msgRes = await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`);
+  const messagesUrl = getCurrentChatMessagesUrl();
+  if (!messagesUrl) return;
+
+  const msgRes = await fetch(`${messagesUrl}/${msgId}.json`);
   const message = await msgRes.json() || {};
   const reactions = message.reactions || {};
   const alreadyReacted = !!(reactions[emoji] && reactions[emoji][currentUser]);
@@ -4827,13 +5181,13 @@ async function reactToMessage(msgId, emoji, event) {
   const cleanup = [];
   for (const existingEmoji of Object.keys(reactions)) {
     if (reactions[existingEmoji] && reactions[existingEmoji][currentUser]) {
-      cleanup.push(fetch(DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${encodeURIComponent(existingEmoji)}/${currentUser}.json`, { method: "DELETE" }));
+      cleanup.push(fetch(`${messagesUrl}/${msgId}/reactions/${encodeURIComponent(existingEmoji)}/${currentUser}.json`, { method: "DELETE" }));
     }
   }
   await Promise.all(cleanup);
 
   if (!alreadyReacted) {
-    await fetch(DB_URL+`/chats/${cid}/messages/${msgId}/reactions/${encodeURIComponent(emoji)}/${currentUser}.json`, {
+    await fetch(`${messagesUrl}/${msgId}/reactions/${encodeURIComponent(emoji)}/${currentUser}.json`, {
       method: "PUT",
       body: "true"
     });
@@ -4861,6 +5215,13 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
 
   const stack = document.createElement("div");
   stack.className = "msg-content-stack";
+
+  if (currentChatType === "group" && !isMe) {
+    const senderLabel = document.createElement("div");
+    senderLabel.className = "msg-sender-label";
+    senderLabel.textContent = m.senderName || m.sender || "Group member";
+    stack.appendChild(senderLabel);
+  }
 
   const bubble = document.createElement("div");
   bubble.className = "msg";
@@ -4924,8 +5285,9 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
 
 async function deleteMessage(msgId) {
   showCustomConfirm("Do you really want to delete this message?", async () => {
-    let cid=chatId(currentUser,currentChatUser);
-    await fetch(DB_URL+`/chats/${cid}/messages/${msgId}.json`, {
+    const messagesUrl = getCurrentChatMessagesUrl();
+    if (!messagesUrl) return;
+    await fetch(`${messagesUrl}/${msgId}.json`, {
       method: "DELETE"
     });
     let element = document.getElementById(`msg-${msgId}`);
@@ -4934,10 +5296,10 @@ async function deleteMessage(msgId) {
 }
 
 async function loadMessages(){
-  if(!currentChatUser) return;
-  let cid=chatId(currentUser,currentChatUser);
+  const messagesUrl = getCurrentChatMessagesUrl();
+  if(!messagesUrl) return;
 
-  let r=await fetch(DB_URL+`/chats/${cid}/messages.json`);
+  let r=await fetch(`${messagesUrl}.json`);
   let data=await r.json() || {};
 
   if(Object.keys(data).length === 0){ 
@@ -4956,8 +5318,9 @@ async function loadMessages(){
   const sortedEntries = Object.entries(data).sort((a, b) => Number(a[0]) - Number(b[0]));
 
   for(let [id,m] of sortedEntries){
+    m = m || {};
     let existingMsg = document.getElementById(`msg-${id}`);
-    let renderedMsg = renderChatMessageElement(id, m || {}, existingMsg);
+    let renderedMsg = renderChatMessageElement(id, m, existingMsg);
 
     if(!existingMsg) {
       messages.appendChild(renderedMsg);
@@ -4966,10 +5329,17 @@ async function loadMessages(){
       messages.appendChild(renderedMsg);
     }
 
-    if(m.sender !== currentUser && !m.seen){
-      await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`,{
+    if(currentChatType === "direct" && m.sender !== currentUser && !m.seen){
+      await fetch(`${messagesUrl}/${id}.json`,{
         method:"PATCH",
         body:JSON.stringify({seen:true})
+      });
+    }
+
+    if(currentChatType === "group" && m.sender !== currentUser && !(m.seenBy && m.seenBy[currentUser])){
+      await fetch(`${messagesUrl}/${id}/seenBy/${currentUser}.json`,{
+        method:"PUT",
+        body:"true"
       });
     }
   }
@@ -4983,31 +5353,37 @@ async function loadMessages(){
 
 // TYPING ENGINE INDICATORS
 async function typing(){
-  let cid=chatId(currentUser,currentChatUser);
+  const typingUrl = getCurrentTypingUrl();
+  if (!typingUrl) return;
 
-  await fetch(DB_URL+`/chats/${cid}/typing/${currentUser}.json`,{
+  await fetch(`${typingUrl}/${currentUser}.json`,{
     method:"PUT", body:"true"
   });
 
   clearTimeout(typingTimeout);
   typingTimeout=setTimeout(async()=>{
-    await fetch(DB_URL+`/chats/${cid}/typing/${currentUser}.json`,{
+    await fetch(`${typingUrl}/${currentUser}.json`,{
       method:"DELETE"
     });
   },1000);
 }
 
 async function loadTyping(){
-  if(!currentChatUser) return;
-  let cid=chatId(currentUser,currentChatUser);
+  const typingUrl = getCurrentTypingUrl();
+  if(!typingUrl) return;
 
-  let r=await fetch(DB_URL+`/chats/${cid}/typing.json`);
-  let d=await r.json();
+  let r=await fetch(`${typingUrl}.json`);
+  let d=await r.json() || {};
+  const others = Object.keys(d).filter(username => username !== currentUser);
 
-  if(d && d[currentChatUser])
-    typingStatus.innerText=currentChatUser+" is typing...";
-  else
+  if(others.length > 0) {
+    const firstUser = others[0];
+    typingStatus.innerText = currentChatType === "group"
+      ? `${firstUser} is typing...`
+      : `${firstUser} is typing...`;
+  } else {
     typingStatus.innerText="";
+  }
 }
 
 // LOOPS & SYNCHRONIZATION RUNTIMES
@@ -5112,6 +5488,47 @@ async function removeAccountData(username) {
   }
 
   await Promise.all(userCleanupRequests);
+
+
+  const groupsRes = await fetch(DB_URL + "/groupChats.json");
+  const groups = await groupsRes.json() || {};
+  const groupCleanupRequests = [];
+
+  for (const [groupId, group] of Object.entries(groups)) {
+    if (!group) continue;
+
+    if (group.owner === username) {
+      groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}.json`, { method: "DELETE" }));
+      continue;
+    }
+
+    if (group.members && group.members[username]) {
+      groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}/members/${username}.json`, { method: "DELETE" }));
+    }
+
+    for (const [msgId, msg] of Object.entries(group.messages || {})) {
+      if (msg && msg.sender === username) {
+        groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}/messages/${msgId}.json`, { method: "DELETE" }));
+        continue;
+      }
+
+      if (msg && msg.seenBy && msg.seenBy[username]) {
+        groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}/messages/${msgId}/seenBy/${username}.json`, { method: "DELETE" }));
+      }
+
+      for (const emoji of Object.keys((msg && msg.reactions) || {})) {
+        if (msg.reactions[emoji] && msg.reactions[emoji][username]) {
+          groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}/messages/${msgId}/reactions/${encodeURIComponent(emoji)}/${username}.json`, { method: "DELETE" }));
+        }
+      }
+    }
+
+    if (group.typing && group.typing[username]) {
+      groupCleanupRequests.push(fetch(DB_URL + `/groupChats/${groupId}/typing/${username}.json`, { method: "DELETE" }));
+    }
+  }
+
+  await Promise.all(groupCleanupRequests);
 
   await fetch(DB_URL + `/users/${username}.json`, { method: "DELETE" });
   localStorage.removeItem(`notes_social_seen_notifications_${username}`);
