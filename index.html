@@ -419,6 +419,17 @@ body.nav-hidden .nav-toggle {
 /* ROW FORMATS & PROFILE */
 .row { display: flex; align-items: center; gap: 10px; }
 .profile-bar { display: flex; align-items: center; justify-content: space-between; }
+.profile-account-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.profile-account-actions button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
 .avatar { font-size: 32px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 
@@ -1274,7 +1285,11 @@ body.form-modal-open {
     white-space: nowrap;
   }
 
-  .profile-bar > button.danger {
+  .profile-account-actions {
+    justify-content: flex-end;
+  }
+
+  .profile-account-actions button {
     width: auto !important;
     min-width: 78px;
     height: 38px;
@@ -1484,7 +1499,11 @@ body.form-modal-open {
     align-items: stretch;
   }
 
-  .profile-bar > button.danger {
+  .profile-account-actions {
+    justify-content: stretch;
+  }
+
+  .profile-account-actions button {
     width: 100% !important;
   }
 }
@@ -1742,7 +1761,10 @@ body.form-modal-open {
           <span id="avatar" class="avatar">😀</span>
           <b id="userDisplay"></b>
         </div>
-        <button class="danger" style="padding: 6px 12px; font-size: 12px;" onclick="logout()">Logout</button>
+        <div class="profile-account-actions">
+          <button class="secondary" onclick="logout()">Logout</button>
+          <button class="danger" onclick="deleteAccount()">Delete Account</button>
+        </div>
       </div>
 
       <div class="card app-hero">
@@ -4493,6 +4515,90 @@ setInterval(async()=>{
   scanNotifications();
 
 },2000);
+
+async function removeAccountData(username) {
+  if (!username) return;
+
+  const notesRes = await fetch(DB_URL + "/notes.json");
+  const notes = await notesRes.json() || {};
+  const usersRes = await fetch(DB_URL + "/users.json");
+  const users = await usersRes.json() || {};
+
+  const ownedNoteIds = [];
+
+  for (const [noteId, note] of Object.entries(notes)) {
+    if (!note) continue;
+
+    if (note.owner === username) {
+      ownedNoteIds.push(noteId);
+      await fetch(DB_URL + `/notes/${noteId}.json`, { method: "DELETE" });
+      continue;
+    }
+
+    const cleanupRequests = [];
+
+    if (note.likes && note.likes[username]) {
+      cleanupRequests.push(fetch(DB_URL + `/notes/${noteId}/likes/${username}.json`, { method: "DELETE" }));
+    }
+
+    for (const [commentId, comment] of Object.entries(note.comments || {})) {
+      if (comment && comment.user === username) {
+        cleanupRequests.push(fetch(DB_URL + `/notes/${noteId}/comments/${commentId}.json`, { method: "DELETE" }));
+      }
+    }
+
+    if (note.sharedWith && note.sharedWith[username]) {
+      cleanupRequests.push(fetch(DB_URL + `/notes/${noteId}/sharedWith/${username}.json`, { method: "DELETE" }));
+    }
+
+    await Promise.all(cleanupRequests);
+  }
+
+  const userCleanupRequests = [];
+
+  for (const otherUsername of Object.keys(users)) {
+    if (otherUsername === username) continue;
+
+    userCleanupRequests.push(fetch(DB_URL + `/users/${otherUsername}/friends/${username}.json`, { method: "DELETE" }));
+    userCleanupRequests.push(fetch(DB_URL + `/users/${otherUsername}/requests/${username}.json`, { method: "DELETE" }));
+
+    for (const noteId of ownedNoteIds) {
+      userCleanupRequests.push(fetch(DB_URL + `/users/${otherUsername}/savedNotes/${noteId}.json`, { method: "DELETE" }));
+    }
+
+    userCleanupRequests.push(fetch(DB_URL + `/chats/${chatId(username, otherUsername)}.json`, { method: "DELETE" }));
+  }
+
+  await Promise.all(userCleanupRequests);
+
+  await fetch(DB_URL + `/users/${username}.json`, { method: "DELETE" });
+  localStorage.removeItem(`notes_social_seen_notifications_${username}`);
+  localStorage.removeItem("bottomNavHidden");
+}
+
+async function deleteAccount() {
+  if (!currentUser) return;
+
+  const usernameToDelete = currentUser;
+
+  showCustomConfirm(
+    "Delete your account permanently? This will remove your profile, posts, messages, friends, requests, saved items, folders, comments, likes, and shared-note access. This cannot be undone.",
+    async () => {
+      try {
+        await removeAccountData(usernameToDelete);
+        currentUser = null;
+        currentChatUser = null;
+        showCustomAlert("Your account and all related data have been deleted.", "Account Deleted", () => {
+          location.reload();
+        });
+      } catch (error) {
+        console.error("Account deletion failed", error);
+        showCustomAlert("Account deletion failed. Please check your connection and try again.", "Delete Failed");
+      }
+    },
+    "Delete Account"
+  );
+}
 
 async function logout(){
   if(currentUser) {
