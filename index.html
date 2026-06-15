@@ -3325,29 +3325,11 @@ async function loadHiddenPostsList() {
       <div class="folder-mini-title">${escapeHTML(titleValue)}</div>
       <div class="folder-mini-text">${escapeHTML(textValue || "No text content.")}</div>
       <div class="folder-active-actions" style="margin-top:10px;">
-        ${canOpen ? `<button class="secondary small-action-btn hidden-open-btn">Open</button>` : ""}
-        ${canOpen ? `<button class="copy-btn small-action-btn hidden-copy-btn">📋 Copy</button>` : ""}
-        <button class="small-action-btn hidden-unhide-btn">Unhide</button>
+        ${canOpen ? `<button class="secondary small-action-btn" onclick="event.stopPropagation(); openNoteModal('${noteId}', ${JSON.stringify(note).replace(/"/g, "&quot;")}, '${escapeHTML(authorAvatar)}', '${escapeHTML(authorDisplayName)}')">Open</button>` : ""}
+        ${canOpen ? `<button class="copy-btn small-action-btn" onclick="copyNotePost('${noteId}', event)">📋 Copy</button>` : ""}
+        <button class="small-action-btn" onclick="unhideFeedPost('${noteId}', event)">Unhide</button>
       </div>
     `;
-
-    const openBtn = box.querySelector(".hidden-open-btn");
-    if (openBtn) {
-      openBtn.onclick = (event) => {
-        event.stopPropagation();
-        openNoteModal(noteId, note, authorAvatar, authorDisplayName);
-      };
-    }
-
-    const copyBtn = box.querySelector(".hidden-copy-btn");
-    if (copyBtn) {
-      copyBtn.onclick = (event) => copyNotePost(noteId, event);
-    }
-
-    const unhideBtn = box.querySelector(".hidden-unhide-btn");
-    if (unhideBtn) {
-      unhideBtn.onclick = (event) => unhideFeedPost(noteId, event);
-    }
 
     fragment.appendChild(box);
   }
@@ -4552,7 +4534,74 @@ function triggerChatPhotoInput(source = "album") {
   input.click();
 }
 
-function handleChatPhotoInput(event, source = "album") {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Could not read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageForResize(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not prepare image preview."));
+    img.src = dataUrl;
+  });
+}
+
+async function prepareChatPhotoDataUrl(file) {
+  const originalDataUrl = await readFileAsDataUrl(file);
+
+  // Keep animated GIF/WebP files untouched so stickers/GIFs do not lose animation.
+  if (/image\/(gif|webp)/i.test(file.type || "")) {
+    return originalDataUrl;
+  }
+
+  try {
+    const img = await loadImageForResize(originalDataUrl);
+    const maxSide = 1280;
+    const scale = Math.min(1, maxSide / Math.max(img.width || maxSide, img.height || maxSide));
+    const width = Math.max(1, Math.round((img.width || maxSide) * scale));
+    const height = Math.max(1, Math.round((img.height || maxSide) * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, width, height);
+
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } catch (error) {
+    return originalDataUrl;
+  }
+}
+
+function getChatPhotoSource(message = {}) {
+  const text = String(message.text || "").trim();
+
+  if (message.photo) return message.photo;
+  if (message.photoData) return message.photoData;
+  if (message.image) return message.image;
+  if (message.imageData) return message.imageData;
+  if (message.attachment && String(message.attachment).startsWith("data:image/")) return message.attachment;
+  if (message.mediaUrl && String(message.mediaUrl).startsWith("data:image/")) return message.mediaUrl;
+
+  // Backward-compatible support for any older message that placed the data URL in text.
+  if (text.startsWith("[PHOTO] data:image/")) return text.replace(/^\[PHOTO\]\s*/i, "");
+  if (text.startsWith("data:image/")) return text;
+
+  return "";
+}
+
+function getChatPhotoLabel(message = {}) {
+  const text = String(message.text || "").trim();
+  return message.photoName || message.fileName || text.replace(/^\[PHOTO\]\s*/i, "").trim() || "Photo";
+}
+
+async function handleChatPhotoInput(event, source = "album") {
   const input = event && event.target ? event.target : null;
   const file = input && input.files ? input.files[0] : null;
   if (!file) return;
@@ -4563,12 +4612,15 @@ function handleChatPhotoInput(event, source = "album") {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    await sendPhotoMessage(e.target.result, file.name || (source === "camera" ? "Captured photo" : "Photo"));
+  try {
+    showToast("Preparing photo...");
+    const dataUrl = await prepareChatPhotoDataUrl(file);
+    await sendPhotoMessage(dataUrl, file.name || (source === "camera" ? "Captured photo" : "Photo"));
+  } catch (error) {
+    showCustomAlert("The photo could not be sent. Please try another image.", "Photo Failed");
+  } finally {
     input.value = "";
-  };
-  reader.readAsDataURL(file);
+  }
 }
 
 async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
@@ -4576,19 +4628,26 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
 
   const id = Date.now();
   const cid = chatId(currentUser, currentChatUser);
+  const payload = {
+    type: "photo",
+    text: `[PHOTO] ${fileName}`,
+    photo: photoDataUrl,
+    photoName: fileName,
+    sender: currentUser,
+    seen: false,
+    createdAt: id,
+    reactions: {}
+  };
 
-  await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
+  const response = await fetch(DB_URL+`/chats/${cid}/messages/${id}.json`, {
     method: "PUT",
-    body: JSON.stringify({
-      text: `[PHOTO] ${fileName}`,
-      photo: photoDataUrl,
-      photoName: fileName,
-      sender: currentUser,
-      seen: false,
-      createdAt: id,
-      reactions: {}
-    })
+    body: JSON.stringify(payload)
   });
+
+  if (!response.ok) {
+    showCustomAlert("The photo was too large or could not be uploaded. Try a smaller image.", "Photo Failed");
+    return;
+  }
 
   togglePhotoOptions(false);
   loadMessages();
@@ -4769,13 +4828,18 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
 
   const messageText = String(m.text || "");
   const directImageUrl = getDirectChatImageUrl(messageText);
-  if (m.photo) {
-    bubble.innerHTML = `<span class="chat-media-caption">Sent photo</span><img src="${escapeHTML(m.photo)}" class="chat-media-view" alt="chat photo attachment">`;
+  const photoSource = getChatPhotoSource(m || {});
+  if (photoSource) {
+    const photoLabel = getChatPhotoLabel(m || {});
+    bubble.innerHTML = `<span class="chat-media-caption">${escapeHTML(photoLabel)}</span><img src="${escapeHTML(photoSource)}" class="chat-media-view" alt="chat photo attachment" loading="lazy">`;
+  } else if(messageText.startsWith("[PHOTO] ")) {
+    const photoLabel = getChatPhotoLabel(m || {});
+    bubble.innerHTML = `<span class="chat-media-caption">${escapeHTML(photoLabel)}</span><span style="font-size:12px; opacity:0.75;">Photo unavailable. Please ask the sender to resend the photo using the updated app.</span>`;
   } else if(messageText.startsWith("[GIF] ")) {
     const cleanUrl = messageText.replace("[GIF] ", "");
-    bubble.innerHTML = `<span class="chat-media-caption">Sent animation</span><img src="${escapeHTML(cleanUrl)}" class="chat-media-view" alt="chat shared inline gif content">`;
+    bubble.innerHTML = `<span class="chat-media-caption">Sent animation</span><img src="${escapeHTML(cleanUrl)}" class="chat-media-view" alt="chat shared inline gif content" loading="lazy">`;
   } else if(directImageUrl) {
-    bubble.innerHTML = `<span class="chat-media-caption">Sent media link</span><img src="${escapeHTML(directImageUrl)}" class="chat-media-view" alt="chat shared media link"><span class="chat-media-link">${escapeHTML(messageText)}</span>`;
+    bubble.innerHTML = `<span class="chat-media-caption">Sent media link</span><img src="${escapeHTML(directImageUrl)}" class="chat-media-view" alt="chat shared media link" loading="lazy"><span class="chat-media-link">${escapeHTML(messageText)}</span>`;
   } else {
     bubble.textContent = messageText;
   }
