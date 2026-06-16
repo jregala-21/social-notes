@@ -1796,7 +1796,7 @@ body.form-modal-open {
 
 <div class="container">
 
-  <div class="card" id="auth">
+  <div class="card" id="auth" style="display:none;">
     <h4 id="authTitle">Welcome to Your Notes!</h4>
 
     <div id="loginView" class="auth-view">
@@ -2580,6 +2580,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setBottomNavHidden(false);
   setupAutoHideBottomNav();
   updateBrowserNotificationIndicator(0);
+  initializeSavedLoginView();
 });
 
 // Chat photo upload and text media support uses the user's camera/album plus normal message text.
@@ -3268,6 +3269,109 @@ function clearAttachedFile(event, source = "feed") {
 }
 
 // AUTHENTICATION
+// SAVED LOGIN FEATURE
+// Stores only the username locally so the app can reopen the same session after refresh.
+// Passwords are not saved in localStorage.
+const SAVED_LOGIN_KEY = "notes_social_saved_login_user";
+
+function rememberSavedLogin(username) {
+  if (!username) return;
+  localStorage.setItem(SAVED_LOGIN_KEY, username);
+}
+
+function forgetSavedLogin() {
+  localStorage.removeItem(SAVED_LOGIN_KEY);
+}
+
+function getSavedLoginUsername() {
+  return localStorage.getItem(SAVED_LOGIN_KEY) || "";
+}
+
+async function finishLogin(u, d) {
+  currentUser=u;
+  auth.style.display="none";
+  app.style.display="block";
+
+  userDisplay.innerText=d.displayName||u;
+  changeUsernameInput.value=d.displayName||u;
+  avatar.innerText=d.avatar||"😀";
+  if (document.getElementById("profileAvatar")) profileAvatar.innerText = d.avatar || "😀";
+  if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = d.displayName || u;
+  if (document.getElementById("profileUsername")) profileUsername.innerText = `@${u}`;
+
+  startPresenceTracking();
+  await ensureCurrentUserPresenceFields();
+  markUserActive(true);
+  loadAll();
+  loadProfileBio();
+  updateDashboardStats();
+  promptForBrowserNotificationsOnce();
+}
+
+function promptToSaveLogin(u, d) {
+  const overlay = document.getElementById('customAppModal');
+  document.getElementById('customModalTitle').innerText = "Save Login?";
+  document.getElementById('customModalMsg').innerText = `Welcome back, ${d.displayName || u}!\n\nDo you want to save this login on this device so you do not need to log in again after refreshing the site?`;
+  document.getElementById('customModalActions').innerHTML = `
+    <button class="secondary" id="saveLoginNoBtn">No</button>
+    <button id="saveLoginYesBtn">Yes, Save</button>
+  `;
+
+  document.getElementById('saveLoginNoBtn').onclick = async function() {
+    forgetSavedLogin();
+    closeCustomModal();
+    await finishLogin(u, d);
+  };
+
+  document.getElementById('saveLoginYesBtn').onclick = async function() {
+    rememberSavedLogin(u);
+    closeCustomModal();
+    await finishLogin(u, d);
+  };
+
+  overlay.classList.add('show');
+}
+
+async function restoreSavedLogin() {
+  const savedUsername = getSavedLoginUsername();
+  if (!savedUsername || currentUser) return false;
+
+  try {
+    let r = await fetch(DB_URL+"/users/"+savedUsername+".json");
+    let d = await r.json();
+
+    if (!d) {
+      forgetSavedLogin();
+      return false;
+    }
+
+    await finishLogin(savedUsername, d);
+    return true;
+  } catch (error) {
+    console.warn("Saved login restore failed", error);
+    return false;
+  }
+}
+
+async function initializeSavedLoginView() {
+  const savedUsername = getSavedLoginUsername();
+
+  // Keep the login card hidden while checking a saved login. This prevents the
+  // login portal from flashing for a moment before the Feed opens on refresh.
+  if (savedUsername) {
+    auth.style.display = "none";
+    app.style.display = "none";
+
+    const restored = await restoreSavedLogin();
+    if (restored) return;
+  }
+
+  if (!currentUser) {
+    auth.style.display = "block";
+    app.style.display = "none";
+  }
+}
+
 async function signup(){
   const disp = (document.getElementById('signupDisplayName')||{}).value?.trim();
   const u = (document.getElementById('signupUsername')||{}).value?.trim();
@@ -3324,27 +3428,8 @@ async function login(){
   if(!d) return showCustomAlert("Account not found. Please check your username.", "Login Failed");
   if(d.password!==p) return showCustomAlert("Incorrect password provided.", "Login Failed");
 
-  // Show welcome notification first, then transition layouts once "OK" is tapped
-  showCustomAlert(`Welcome back, ${d.displayName || u}!`, "Login Successful", async () => {
-    currentUser=u;
-    auth.style.display="none";
-    app.style.display="block";
-
-    userDisplay.innerText=d.displayName||u;
-    changeUsernameInput.value=d.displayName||u;
-    avatar.innerText=d.avatar||"😀";
-    if (document.getElementById("profileAvatar")) profileAvatar.innerText = d.avatar || "😀";
-    if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = d.displayName || u;
-    if (document.getElementById("profileUsername")) profileUsername.innerText = `@${u}`;
-
-    startPresenceTracking();
-    await ensureCurrentUserPresenceFields();
-    markUserActive(true);
-    loadAll();
-    loadProfileBio();
-    updateDashboardStats();
-    promptForBrowserNotificationsOnce();
-  });
+  // Saved login prompt: user can choose whether this device should stay logged in after refresh.
+  promptToSaveLogin(u, d);
 }
 
 // ONLINE / ACTIVITY PRESENCE
@@ -6001,6 +6086,7 @@ async function deleteAccount() {
     async () => {
       try {
         await removeAccountData(usernameToDelete);
+        if (getSavedLoginUsername() === usernameToDelete) forgetSavedLogin();
         currentUser = null;
         currentChatUser = null;
         showCustomAlert("Your account and all related data have been deleted.", "Account Deleted", () => {
@@ -6016,6 +6102,7 @@ async function deleteAccount() {
 }
 
 async function logout(){
+  forgetSavedLogin();
   if(currentUser) {
     await setOnline(false, Date.now());
   }
