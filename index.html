@@ -2248,6 +2248,10 @@ let toastCounter = 0;
 let notificationItems = [];
 let lastNotificationSignature = "";
 let notificationScanInProgress = false;
+const APP_TITLE = "Notes Social WebApp";
+let baseFaviconHref = "";
+let lastBrowserNotificationSignature = "";
+let lastBrowserNotificationTotal = 0;
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 let activeReactionMessageId = null;
 let bottomNavScrollTimer = null;
@@ -2260,6 +2264,152 @@ let lastPresencePushAt = 0;
 let isLocallyOnline = false;
 let presenceTrackingStarted = false;
 let presenceInactivityTimer = null;
+
+
+function ensureAppFaviconLink() {
+  let link = document.getElementById("dynamicFaviconLink");
+  if (!link) {
+    link = document.querySelector('link[rel="icon"]') || document.createElement("link");
+    link.id = "dynamicFaviconLink";
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+
+  if (!baseFaviconHref) {
+    baseFaviconHref = link.href || createNotificationFavicon(0);
+  }
+
+  return link;
+}
+
+function createNotificationFavicon(count = 0) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.fillStyle = "#1877f2";
+  ctx.beginPath();
+  ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 30px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("N", 32, 34);
+
+  if (count > 0) {
+    const label = count > 99 ? "99+" : String(count);
+    ctx.fillStyle = "#e41e3f";
+    ctx.beginPath();
+    ctx.arc(47, 17, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = label.length > 2 ? "bold 13px Arial, sans-serif" : "bold 17px Arial, sans-serif";
+    ctx.fillText(label, 47, 17);
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+function updateBrowserNotificationIndicator(total = 0) {
+  const safeTotal = Math.max(0, Number(total) || 0);
+  document.title = safeTotal > 0 ? `(${safeTotal}) ${APP_TITLE}` : APP_TITLE;
+
+  try {
+    const link = ensureAppFaviconLink();
+    link.href = safeTotal > 0 ? createNotificationFavicon(safeTotal) : (baseFaviconHref || createNotificationFavicon(0));
+  } catch (error) {
+    console.warn("Could not update browser tab icon", error);
+  }
+}
+
+function browserNotificationsSupported() {
+  return "Notification" in window && window.isSecureContext;
+}
+
+function getBrowserNotificationPromptKey() {
+  return `notes_social_browser_notifications_prompted_${currentUser || "guest"}`;
+}
+
+async function requestBrowserNotificationPermission() {
+  if (!browserNotificationsSupported()) {
+    showCustomAlert("Browser notifications need HTTPS or localhost support. The tab title badge will still work.", "Notifications");
+    return false;
+  }
+
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") {
+    showCustomAlert("Notifications are blocked in your browser settings. You can enable them from the site settings if you want alerts.", "Notifications Blocked");
+    return false;
+  }
+
+  try {
+    const result = await Notification.requestPermission();
+    return result === "granted";
+  } catch (error) {
+    console.warn("Notification permission request failed", error);
+    return false;
+  }
+}
+
+function promptForBrowserNotificationsOnce() {
+  if (!currentUser || !browserNotificationsSupported() || Notification.permission !== "default") return;
+
+  const promptKey = getBrowserNotificationPromptKey();
+  if (localStorage.getItem(promptKey)) return;
+  localStorage.setItem(promptKey, "true");
+
+  showCustomConfirm(
+    "Allow this website to show desktop/mobile system notifications for new chats, likes, and comments? Your browser will ask for permission next.",
+    () => requestBrowserNotificationPermission(),
+    "Allow Notifications?"
+  );
+}
+
+function showBrowserNotificationSummary(items = [], total = 0, signature = "") {
+  if (!browserNotificationsSupported() || Notification.permission !== "granted") return;
+  if (!items.length || !total || !signature || signature === lastBrowserNotificationSignature) return;
+
+  lastBrowserNotificationSignature = signature;
+  const first = items[0] || {};
+  const title = total === 1 ? (first.title || "New notification") : `${total} new notifications`;
+  const body = total === 1
+    ? (first.text || "Open Notes Social WebApp to view it.")
+    : (first.text ? `${first.text} +${total - 1} more` : "Open Notes Social WebApp to view them.");
+
+  const notificationOptions = {
+    body,
+    tag: `notes-social-webapp-${signature.slice(0, 80)}`,
+    renotify: true,
+    silent: false,
+    timestamp: Date.now(),
+    requireInteraction: document.hidden,
+    icon: createNotificationFavicon(total),
+    badge: createNotificationFavicon(total),
+    vibrate: [120, 60, 120],
+    data: { notificationIndex: 0 }
+  };
+
+  try {
+    const notice = new Notification(title, notificationOptions);
+    notice.onclick = () => {
+      window.focus();
+      notice.close();
+      if (notificationItems && notificationItems.length) {
+        openNotificationItem(0);
+      }
+    };
+  } catch (error) {
+    console.warn("Could not show system notification", error);
+  }
+}
 
 function setBottomNavHidden(isHidden) {
   document.body.classList.toggle("nav-hidden", !!isHidden);
@@ -2310,6 +2460,7 @@ function setupAutoHideBottomNav() {
 document.addEventListener("DOMContentLoaded", () => {
   setBottomNavHidden(false);
   setupAutoHideBottomNav();
+  updateBrowserNotificationIndicator(0);
 });
 
 // Chat photo upload and text media support uses the user's camera/album plus normal message text.
@@ -3073,6 +3224,7 @@ async function login(){
     loadAll();
     loadProfileBio();
     updateDashboardStats();
+    promptForBrowserNotificationsOnce();
   });
 }
 
@@ -4357,11 +4509,21 @@ function renderNotificationBar(items) {
   setTabBadge("chatTabBadge", chatTotal);
   setTabBadge("profileTabBadge", noteTotal);
 
+  updateBrowserNotificationIndicator(total);
+
   if (total === 0) {
     shell.classList.add("hidden");
     document.getElementById("notificationBar")?.classList.remove("open");
+    lastBrowserNotificationTotal = 0;
+    lastBrowserNotificationSignature = "";
     return;
   }
+
+  const browserSignature = JSON.stringify(items.map(item => `${item.type}:${item.user || item.groupId || item.key || item.noteId}:${item.count || 1}`));
+  if (total > lastBrowserNotificationTotal || browserSignature !== lastBrowserNotificationSignature) {
+    showBrowserNotificationSummary(items, total, browserSignature);
+  }
+  lastBrowserNotificationTotal = total;
 
   shell.classList.remove("hidden");
   summary.textContent = `${total} new ${total === 1 ? "notification" : "notifications"}`;
