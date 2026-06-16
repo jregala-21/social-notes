@@ -672,12 +672,29 @@ body.chat-open .nav-toggle {
   flex: 1; overflow-y: auto; padding: 15px;
   display: flex; flex-direction: column; gap: 8px;
 }
-.msg-wrapper { display: flex; width: 100%; align-items: center; gap: 6px; }
+.msg-wrapper { display: flex; width: 100%; align-items: flex-end; gap: 6px; }
 .msg-wrapper.me { justify-content: flex-end; }
 .msg-wrapper.them { justify-content: flex-start; }
+.chat-message-avatar {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 999px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+}
+.msg-wrapper.me .chat-message-avatar { margin-left: 2px; }
+.msg-wrapper.them .chat-message-avatar { margin-right: 2px; }
 
 .msg { 
-  padding: 10px 14px; border-radius: 16px; max-width: 75%; 
+  padding: 10px 14px; border-radius: 16px; max-width: 100%; 
   font-size: 14px; word-break: break-word; position: relative;
 }
 .msg-wrapper.me .msg { background: var(--msg-me); color: var(--msg-me-text); border-bottom-right-radius: 4px; }
@@ -728,19 +745,28 @@ body.chat-open .nav-toggle {
   line-height: 1.2;
 }
 .msg-reaction-btn {
-  background: var(--bg-primary);
+  background: var(--bg-card);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
   padding: 0;
   border-radius: 999px;
   font-size: 16px;
-  opacity: 0.8;
+  opacity: 0;
+  align-self: center;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  transform: scale(0.92);
 }
-.msg-reaction-btn:hover { background: var(--border-color); color: var(--text-primary); opacity: 1; }
-.msg-wrapper:hover .msg-reaction-btn { opacity: 1; }
+.msg-reaction-btn:hover { background: var(--border-color); color: var(--text-primary); opacity: 1; transform: scale(1); }
+.msg-wrapper:hover .msg-reaction-btn,
+.msg-wrapper:focus-within .msg-reaction-btn { opacity: 1; }
+@media (hover: none) {
+  .msg-reaction-btn { opacity: 0.82; }
+}
 .reaction-picker {
   position: fixed;
   z-index: 6000;
@@ -1763,6 +1789,7 @@ body.form-modal-open {
   <h1>Notes Social WebApp</h1>
   <div class="header-actions">
     <button class="refresh-btn" onclick="manualRefresh()" title="Refresh Data">🔄</button>
+    <button class="theme-btn" onclick="requestBrowserNotificationPermission()" title="Enable/Test Windows Notifications">🔔</button>
     <button class="theme-btn" onclick="toggleTheme()" id="themeToggleBtn">🌙</button>
   </div>
 </header>
@@ -2253,6 +2280,7 @@ let baseFaviconHref = "";
 let lastBrowserNotificationSignature = "";
 let lastBrowserNotificationTotal = 0;
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+const chatAvatarCache = {};
 let activeReactionMessageId = null;
 let bottomNavScrollTimer = null;
 let lastBottomNavScrollY = 0;
@@ -2331,7 +2359,91 @@ function updateBrowserNotificationIndicator(total = 0) {
 }
 
 function browserNotificationsSupported() {
-  return "Notification" in window && window.isSecureContext;
+  return "Notification" in window;
+}
+
+function browserNotificationNeedsSecureOrigin() {
+  return location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1" && location.protocol !== "file:";
+}
+
+function buildSystemNotificationIcon(count = 1) {
+  // Windows/Edge/Chrome notifications are more reliable with a larger PNG icon.
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 192;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#1877f2";
+  ctx.beginPath();
+  ctx.arc(96, 96, 82, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 88px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("N", 96, 105);
+
+  if (count > 0) {
+    const label = count > 99 ? "99+" : String(count);
+    ctx.fillStyle = "#e41e3f";
+    ctx.beginPath();
+    ctx.arc(142, 50, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 8;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = label.length > 2 ? "bold 25px Arial, sans-serif" : "bold 34px Arial, sans-serif";
+    ctx.fillText(label, 142, 51);
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+function showWindowsCompatibleNotification(title, options = {}) {
+  if (!browserNotificationsSupported() || Notification.permission !== "granted") return null;
+
+  const safeOptions = {
+    body: options.body || "Open Notes Social WebApp to view it.",
+    icon: options.icon || buildSystemNotificationIcon(options.count || 1),
+    badge: options.badge || buildSystemNotificationIcon(options.count || 1),
+    tag: options.tag || `notes-social-webapp-${Date.now()}`,
+    renotify: true,
+    silent: false,
+    requireInteraction: true,
+    timestamp: Date.now(),
+    data: options.data || {}
+  };
+
+  if (navigator.vibrate) navigator.vibrate(options.vibrate || [120, 60, 120]);
+
+  try {
+    return new Notification(title || "Notes Social WebApp", safeOptions);
+  } catch (error) {
+    console.warn("Windows/system notification failed", error);
+    return null;
+  }
+}
+
+function showTestSystemNotification() {
+  const notice = showWindowsCompatibleNotification("Notes Social WebApp", {
+    body: "System notifications are enabled. New chats, likes, and comments should appear here.",
+    count: 1,
+    tag: "notes-social-webapp-test",
+    data: { test: true }
+  });
+
+  if (!notice) {
+    showCustomAlert("The browser accepted the request, but the system notification could not be shown. Check Windows Settings > System > Notifications and make sure notifications are enabled for this browser.", "Notification Test Failed");
+    return;
+  }
+
+  notice.onclick = () => {
+    window.focus();
+    notice.close();
+  };
 }
 
 function getBrowserNotificationPromptKey() {
@@ -2340,19 +2452,34 @@ function getBrowserNotificationPromptKey() {
 
 async function requestBrowserNotificationPermission() {
   if (!browserNotificationsSupported()) {
-    showCustomAlert("Browser notifications need HTTPS or localhost support. The tab title badge will still work.", "Notifications");
+    showCustomAlert("This browser does not support system notifications. The tab title badge will still work.", "Notifications");
     return false;
   }
 
-  if (Notification.permission === "granted") return true;
+  if (browserNotificationNeedsSecureOrigin()) {
+    showCustomAlert("System notifications usually require HTTPS or localhost. The tab title badge will still work on this page, but Windows notifications may be blocked by the browser.", "Secure Site Needed");
+    return false;
+  }
+
+  if (Notification.permission === "granted") {
+    showTestSystemNotification();
+    return true;
+  }
+
   if (Notification.permission === "denied") {
-    showCustomAlert("Notifications are blocked in your browser settings. You can enable them from the site settings if you want alerts.", "Notifications Blocked");
+    showCustomAlert("Notifications are blocked for this site. In Chrome/Edge, click the lock/tune icon beside the address bar, open Site settings, and set Notifications to Allow. Also check Windows Settings > System > Notifications for your browser.", "Notifications Blocked");
     return false;
   }
 
   try {
     const result = await Notification.requestPermission();
-    return result === "granted";
+    if (result === "granted") {
+      showTestSystemNotification();
+      return true;
+    }
+
+    showCustomAlert("Notifications were not allowed. The browser tab badge will still work, but Windows notifications will not appear until permission is allowed.", "Notifications Not Allowed");
+    return false;
   } catch (error) {
     console.warn("Notification permission request failed", error);
     return false;
@@ -2384,21 +2511,15 @@ function showBrowserNotificationSummary(items = [], total = 0, signature = "") {
     ? (first.text || "Open Notes Social WebApp to view it.")
     : (first.text ? `${first.text} +${total - 1} more` : "Open Notes Social WebApp to view them.");
 
-  const notificationOptions = {
+  const notice = showWindowsCompatibleNotification(title, {
     body,
     tag: `notes-social-webapp-${signature.slice(0, 80)}`,
-    renotify: true,
-    silent: false,
-    timestamp: Date.now(),
-    requireInteraction: document.hidden,
-    icon: createNotificationFavicon(total),
-    badge: createNotificationFavicon(total),
+    count: total,
     vibrate: [120, 60, 120],
     data: { notificationIndex: 0 }
-  };
+  });
 
-  try {
-    const notice = new Notification(title, notificationOptions);
+  if (notice) {
     notice.onclick = () => {
       window.focus();
       notice.close();
@@ -2406,8 +2527,6 @@ function showBrowserNotificationSummary(items = [], total = 0, signature = "") {
         openNotificationItem(0);
       }
     };
-  } catch (error) {
-    console.warn("Could not show system notification", error);
   }
 }
 
@@ -4843,6 +4962,47 @@ function getCurrentDisplayName() {
   return (display && display.innerText ? display.innerText : currentUser) || currentUser;
 }
 
+function getCurrentAvatar() {
+  const avatarEl = document.getElementById("avatar");
+  return (avatarEl && avatarEl.innerText ? avatarEl.innerText : "😀") || "😀";
+}
+
+async function loadChatAvatarForMessage(username, avatarElement) {
+  if (!username || !avatarElement) return;
+
+  if (chatAvatarCache[username]) {
+    avatarElement.textContent = chatAvatarCache[username];
+    return;
+  }
+
+  try {
+    const userRes = await fetch(DB_URL+`/users/${username}.json`);
+    const userData = await userRes.json() || {};
+    const avatarValue = userData.avatar || "😀";
+    chatAvatarCache[username] = avatarValue;
+
+    if (avatarElement.dataset.sender === username) {
+      avatarElement.textContent = avatarValue;
+    }
+  } catch (error) {
+    avatarElement.textContent = "😀";
+  }
+}
+
+function createChatMessageAvatar(message = {}) {
+  const avatar = document.createElement("span");
+  avatar.className = "chat-message-avatar";
+  avatar.dataset.sender = message.sender || "";
+  avatar.title = message.senderName || message.sender || "User";
+  avatar.textContent = message.senderAvatar || chatAvatarCache[message.sender] || "😀";
+
+  if (!message.senderAvatar && message.sender) {
+    loadChatAvatarForMessage(message.sender, avatar);
+  }
+
+  return avatar;
+}
+
 function isCurrentGroupOwner(group = {}) {
   return currentChatType === "group" && group && group.owner === currentUser;
 }
@@ -5268,6 +5428,7 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
     photoName: fileName,
     sender: currentUser,
     senderName: getCurrentDisplayName(),
+    senderAvatar: getCurrentAvatar(),
     seen: currentChatType === "direct" ? false : undefined,
     seenBy: currentChatType === "group" ? { [currentUser]: true } : undefined,
     createdAt: id,
@@ -5327,6 +5488,7 @@ async function sendMessage(){
       text,
       sender:currentUser,
       senderName:getCurrentDisplayName(),
+      senderAvatar:getCurrentAvatar(),
       seen: currentChatType === "direct" ? false : undefined,
       seenBy: currentChatType === "group" ? { [currentUser]: true } : undefined,
       createdAt:id,
@@ -5466,6 +5628,7 @@ function getChatMessageRenderSignature(msgId, m = {}) {
     type: m.type || "text",
     sender: m.sender || "",
     senderName: m.senderName || "",
+    senderAvatar: m.senderAvatar || "",
     text: m.text || "",
     photo: getChatPhotoSource(m || ""),
     photoName: getChatPhotoLabel(m || {}),
@@ -5492,14 +5655,16 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
   wrapper.dataset.renderSignature = signature;
   wrapper.innerHTML = "";
 
+  let delBtn = null;
   if (isMe) {
-    const delBtn = document.createElement("button");
+    delBtn = document.createElement("button");
     delBtn.className = "msg-del-btn";
     delBtn.type = "button";
     delBtn.innerHTML = "🗑️";
     delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(msgId); };
-    wrapper.appendChild(delBtn);
   }
+
+  const avatarEl = createChatMessageAvatar(m || {});
 
   const stack = document.createElement("div");
   stack.className = "msg-content-stack";
@@ -5561,11 +5726,14 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
   reactBtn.onclick = (event) => openReactionPicker(msgId, event);
 
   if (isMe) {
-    wrapper.appendChild(stack);
+    if (delBtn) wrapper.appendChild(delBtn);
     wrapper.appendChild(reactBtn);
+    wrapper.appendChild(stack);
+    wrapper.appendChild(avatarEl);
   } else {
-    wrapper.appendChild(reactBtn);
+    wrapper.appendChild(avatarEl);
     wrapper.appendChild(stack);
+    wrapper.appendChild(reactBtn);
   }
 
   return wrapper;
