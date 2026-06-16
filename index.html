@@ -509,6 +509,7 @@ body.nav-hidden .nav-toggle {
 .item-row:last-child { border-bottom: none; }
 
 .online { color: #2db742; font-size: 12px; margin-left: 4px; }
+.offline { color: var(--text-secondary); font-size: 12px; margin-left: 4px; }
 .privacy-selectors { display: flex; gap: 16px; margin: 8px 0; }
 .privacy-selectors label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .privacy-selectors input { width: auto; margin: 0; }
@@ -2252,6 +2253,13 @@ let activeReactionMessageId = null;
 let bottomNavScrollTimer = null;
 let lastBottomNavScrollY = 0;
 let bottomNavLockedHidden = false;
+const USER_INACTIVITY_LIMIT_MS = 3 * 60 * 1000;
+const PRESENCE_PUSH_THROTTLE_MS = 15000;
+let lastLocalActivityAt = Date.now();
+let lastPresencePushAt = 0;
+let isLocallyOnline = false;
+let presenceTrackingStarted = false;
+let presenceInactivityTimer = null;
 
 function setBottomNavHidden(isHidden) {
   document.body.classList.toggle("nav-hidden", !!isHidden);
@@ -3059,19 +3067,90 @@ async function login(){
     if (document.getElementById("profileDisplayName")) profileDisplayName.innerText = d.displayName || u;
     if (document.getElementById("profileUsername")) profileUsername.innerText = `@${u}`;
 
-    setOnline(true);
+    startPresenceTracking();
+    markUserActive(true);
     loadAll();
     loadProfileBio();
     updateDashboardStats();
   });
 }
 
-// ONLINE HEURISTICS
-async function setOnline(status){
+// ONLINE / ACTIVITY PRESENCE
+function formatPresenceAgo(lastActiveAt) {
+  const timestamp = Number(lastActiveAt) || 0;
+  if (!timestamp) return "Offline";
+
+  const diffMs = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.max(1, Math.floor(diffMs / 60000));
+  if (minutes < 60) return `Offline ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Offline ${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `Offline ${days} ${days === 1 ? "day" : "days"} ago`;
+}
+
+function getPresenceInfo(userData = {}) {
+  const lastActiveAt = Number(userData.lastActiveAt || 0);
+
+  // Source of truth is recent activity, not the stored online boolean.
+  // The online boolean can become stale when a tab closes, a request fails,
+  // or an older client writes online:false. If the user has activity within
+  // the inactivity window, show them as online.
+  const isActiveNow = lastActiveAt > 0 && (Date.now() - lastActiveAt) < USER_INACTIVITY_LIMIT_MS;
+
+  return {
+    online: isActiveNow,
+    label: isActiveNow ? "● Online" : `● ${formatPresenceAgo(lastActiveAt)}`
+  };
+}
+
+async function setOnline(status, activeAt = Date.now()) {
+  if (!currentUser) return;
+
+  isLocallyOnline = !!status;
+  lastPresencePushAt = Date.now();
+
+  const payload = status
+    ? { online: true, lastActiveAt: activeAt }
+    : { online: false, lastActiveAt: activeAt, lastOfflineAt: Date.now() };
+
   await fetch(DB_URL+`/users/${currentUser}.json`,{
     method:"PATCH",
-    body:JSON.stringify({online:status})
+    body:JSON.stringify(payload)
   });
+}
+
+function markUserActive(forcePush = false) {
+  if (!currentUser) return;
+
+  lastLocalActivityAt = Date.now();
+  const shouldPush = forcePush || !isLocallyOnline || (Date.now() - lastPresencePushAt) >= PRESENCE_PUSH_THROTTLE_MS;
+
+  if (shouldPush) {
+    setOnline(true, lastLocalActivityAt).catch(error => console.warn("Presence update failed", error));
+  }
+}
+
+function startPresenceTracking() {
+  if (presenceTrackingStarted) return;
+  presenceTrackingStarted = true;
+
+  const activityEvents = ["click", "keydown", "mousemove", "touchstart", "scroll", "input"];
+  activityEvents.forEach(eventName => {
+    window.addEventListener(eventName, () => markUserActive(false), { passive: true });
+  });
+
+  presenceInactivityTimer = setInterval(() => {
+    if (!currentUser || !isLocallyOnline) return;
+
+    if (Date.now() - lastLocalActivityAt >= USER_INACTIVITY_LIMIT_MS) {
+      setOnline(false, lastLocalActivityAt).catch(error => console.warn("Presence idle update failed", error));
+      loadFriends();
+      loadChatFriends();
+    }
+  }, 30000);
 }
 
 // AVATAR HANDLER
@@ -3248,29 +3327,25 @@ async function loadFriends(){
     return;
   }
 
-  Array.from(friendsList.children).forEach(child => {
-    if(child.id && !f[child.id.replace('friend-', '')]) child.remove();
-  });
-
-  if(friendsList.innerHTML === "None") friendsList.innerHTML = "";
+  const fragment = document.createDocumentFragment();
 
   for(let x in f){
-    let existing = document.getElementById(`friend-${x}`);
-    if(!existing) {
-      let uRes = await fetch(DB_URL+"/users/"+x+".json");
-      let userData = await uRes.json() || {};
-      let nameToShow = userData.displayName || x;
+    let uRes = await fetch(DB_URL+"/users/"+x+".json");
+    let userData = await uRes.json() || {};
+    let nameToShow = userData.displayName || x;
+    const presence = getPresenceInfo(userData);
 
-      let div = document.createElement("div");
-      div.className = "item-row";
-      div.id = `friend-${x}`;
-      div.innerHTML = `
-        <span>${nameToShow} (@${x})</span>
-        <button class="danger" style="padding: 4px 8px; font-size:12px;" onclick="unfriend('${x}')">Unfriend</button>
-      `;
-      friendsList.appendChild(div);
-    }
+    let div = document.createElement("div");
+    div.className = "item-row";
+    div.id = `friend-${x}`;
+    div.innerHTML = `
+      <span>${escapeHTML(nameToShow)} (@${escapeHTML(x)}) <span class="${presence.online ? "online" : "offline"}">${escapeHTML(presence.label)}</span></span>
+      <button class="danger" style="padding: 4px 8px; font-size:12px;" onclick="unfriend('${x}')">Unfriend</button>
+    `;
+    fragment.appendChild(div);
   }
+
+  friendsList.replaceChildren(fragment);
 }
 
 async function unfriend(f){
@@ -4705,10 +4780,10 @@ async function loadChatFriends(){
       subtitle.className = "chat-user-subtitle";
       subtitle.innerText = `@${x}`;
 
+      const presence = getPresenceInfo(u);
       let dot = document.createElement("span");
-      dot.className = "online";
-      dot.style.display = u.online ? "inline" : "none";
-      dot.innerText = " ● Online";
+      dot.className = presence.online ? "online" : "offline";
+      dot.innerText = ` ${presence.label}`;
       subtitle.appendChild(dot);
 
       main.appendChild(nameSpan);
@@ -5197,11 +5272,37 @@ async function reactToMessage(msgId, emoji, event) {
   loadMessages();
 }
 
+function getChatMessageRenderSignature(msgId, m = {}) {
+  const isMe = m.sender === currentUser;
+  return JSON.stringify({
+    id: String(msgId),
+    type: m.type || "text",
+    sender: m.sender || "",
+    senderName: m.senderName || "",
+    text: m.text || "",
+    photo: getChatPhotoSource(m || ""),
+    photoName: getChatPhotoLabel(m || {}),
+    createdAt: m.createdAt || msgId,
+    seen: isMe ? !!m.seen : false,
+    reactions: m.reactions || {}
+  });
+}
+
 function renderChatMessageElement(msgId, m, existingWrapper = null) {
+  const signature = getChatMessageRenderSignature(msgId, m || {});
+
+  // Important: do not rebuild an existing message when nothing changed.
+  // The chat refresh interval runs often; rebuilding the <img> node on each poll
+  // makes photo messages reload visually, which looks like blinking/flickering.
+  if (existingWrapper && existingWrapper.dataset.renderSignature === signature) {
+    return existingWrapper;
+  }
+
   const isMe = m.sender === currentUser;
   const wrapper = existingWrapper || document.createElement("div");
   wrapper.className = "msg-wrapper " + (isMe ? "me" : "them");
   wrapper.id = `msg-${msgId}`;
+  wrapper.dataset.renderSignature = signature;
   wrapper.innerHTML = "";
 
   if (isMe) {
@@ -5561,7 +5662,7 @@ async function deleteAccount() {
 
 async function logout(){
   if(currentUser) {
-    await setOnline(false);
+    await setOnline(false, Date.now());
   }
   location.reload();
 }
@@ -5569,7 +5670,13 @@ async function logout(){
 setupAutoResizeTextareas();
 
 window.addEventListener('beforeunload', () => {
-  if(currentUser) setOnline(false);
+  if(currentUser) {
+    fetch(DB_URL+`/users/${currentUser}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ online: false, lastActiveAt: Date.now(), lastOfflineAt: Date.now() }),
+      keepalive: true
+    });
+  }
 });
 </script>
 
