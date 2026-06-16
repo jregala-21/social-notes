@@ -2253,7 +2253,7 @@ let activeReactionMessageId = null;
 let bottomNavScrollTimer = null;
 let lastBottomNavScrollY = 0;
 let bottomNavLockedHidden = false;
-const USER_INACTIVITY_LIMIT_MS = 3 * 60 * 1000;
+const USER_INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
 const PRESENCE_PUSH_THROTTLE_MS = 15000;
 let lastLocalActivityAt = Date.now();
 let lastPresencePushAt = 0;
@@ -3055,7 +3055,7 @@ async function login(){
   if(d.password!==p) return showCustomAlert("Incorrect password provided.", "Login Failed");
 
   // Show welcome notification first, then transition layouts once "OK" is tapped
-  showCustomAlert(`Welcome back, ${d.displayName || u}!`, "Login Successful", () => {
+  showCustomAlert(`Welcome back, ${d.displayName || u}!`, "Login Successful", async () => {
     currentUser=u;
     auth.style.display="none";
     app.style.display="block";
@@ -3068,6 +3068,7 @@ async function login(){
     if (document.getElementById("profileUsername")) profileUsername.innerText = `@${u}`;
 
     startPresenceTracking();
+    await ensureCurrentUserPresenceFields();
     markUserActive(true);
     loadAll();
     loadProfileBio();
@@ -3082,7 +3083,7 @@ function formatPresenceAgo(lastActiveAt) {
 
   const diffMs = Math.max(0, Date.now() - timestamp);
   const minutes = Math.max(1, Math.floor(diffMs / 60000));
-  if (minutes < 60) return `Offline ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+  if (minutes < 60) return `Offline ${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `Offline ${hours} ${hours === 1 ? "hour" : "hours"} ago`;
@@ -3093,17 +3094,41 @@ function formatPresenceAgo(lastActiveAt) {
 
 function getPresenceInfo(userData = {}) {
   const lastActiveAt = Number(userData.lastActiveAt || 0);
+  const lastOfflineAt = Number(userData.lastOfflineAt || 0);
+  const presenceTimestamp = lastActiveAt || lastOfflineAt;
 
-  // Source of truth is recent activity, not the stored online boolean.
-  // The online boolean can become stale when a tab closes, a request fails,
-  // or an older client writes online:false. If the user has activity within
-  // the inactivity window, show them as online.
-  const isActiveNow = lastActiveAt > 0 && (Date.now() - lastActiveAt) < USER_INACTIVITY_LIMIT_MS;
+  // New and migrated accounts use lastActiveAt as the source of truth.
+  // Very old accounts may only have online:true, so keep that legacy fallback
+  // until they open the updated app and receive lastActiveAt automatically.
+  const hasRecentActivity = lastActiveAt > 0 && (Date.now() - lastActiveAt) < USER_INACTIVITY_LIMIT_MS;
+  const legacyOnlineWithoutTimestamp = !lastActiveAt && userData.online === true;
+  const isActiveNow = hasRecentActivity || legacyOnlineWithoutTimestamp;
 
   return {
     online: isActiveNow,
-    label: isActiveNow ? "● Online" : `● ${formatPresenceAgo(lastActiveAt)}`
+    label: isActiveNow ? "● Online" : `● ${formatPresenceAgo(presenceTimestamp)}`
   };
+}
+
+async function ensureCurrentUserPresenceFields() {
+  if (!currentUser) return;
+
+  try {
+    // Always refresh these fields on login/app start, not only when missing.
+    // This fixes legacy accounts whose old online:false value or stale timestamp
+    // prevented the new activity-based presence from showing correctly.
+    const now = Date.now();
+    lastLocalActivityAt = now;
+    isLocallyOnline = true;
+    lastPresencePushAt = now;
+
+    await fetch(DB_URL+`/users/${currentUser}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ online: true, lastActiveAt: now, lastOfflineAt: null })
+    });
+  } catch (error) {
+    console.warn("Presence migration failed", error);
+  }
 }
 
 async function setOnline(status, activeAt = Date.now()) {
@@ -3150,7 +3175,7 @@ function startPresenceTracking() {
       loadFriends();
       loadChatFriends();
     }
-  }, 30000);
+  }, 10000);
 }
 
 // AVATAR HANDLER
@@ -5671,9 +5696,10 @@ setupAutoResizeTextareas();
 
 window.addEventListener('beforeunload', () => {
   if(currentUser) {
+    const offlineAt = Date.now();
     fetch(DB_URL+`/users/${currentUser}.json`, {
       method: "PATCH",
-      body: JSON.stringify({ online: false, lastActiveAt: Date.now(), lastOfflineAt: Date.now() }),
+      body: JSON.stringify({ online: false, lastActiveAt: lastLocalActivityAt || offlineAt, lastOfflineAt: offlineAt }),
       keepalive: true
     });
   }
