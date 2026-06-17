@@ -347,6 +347,14 @@
         <input type="file" id="chatAlbumInput" accept="image/*" onchange="handleChatPhotoInput(event, 'album')" hidden>
       </div>
 
+      <div class="emoji-options-drawer" id="emojiOptionsDrawer">
+        <div class="emoji-drawer-header">
+          <span>Pick an emoji</span>
+          <button class="secondary small-action-btn" type="button" onclick="toggleEmojiOptions(false)">Close</button>
+        </div>
+        <div class="emoji-grid" id="chatEmojiGrid"></div>
+      </div>
+
       <div class="reply-preview-bar hidden" id="replyPreviewBar">
         <div class="reply-preview-content">
           <div class="reply-preview-label" id="replyPreviewLabel">Replying to message</div>
@@ -356,8 +364,9 @@
       </div>
 
       <div class="chat-input-area">
-        <button class="secondary" onclick="togglePhotoOptions()" style="height: 42px; padding: 0 12px;" title="Send photo">📷</button>
-        <textarea id="chatInput" placeholder="Type message, GIF/sticker link, or emoji..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)"></textarea>
+        <button class="secondary chat-icon-btn" onclick="togglePhotoOptions()" title="Send photo, GIF, or sticker image">📷</button>
+        <button class="secondary chat-icon-btn" onclick="toggleEmojiOptions()" title="Open emoji picker">😊</button>
+        <textarea id="chatInput" placeholder="Type, paste a GIF/sticker, or paste an image link..." rows="1" oninput="typing(); autoResizeTextarea(this)" onkeydown="handleChatInputKeydown(event)" onpaste="handleChatInputPaste(event)" ondrop="handleChatInputDrop(event)" ondragover="handleChatInputDragOver(event)"></textarea>
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
