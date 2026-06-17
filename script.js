@@ -27,6 +27,15 @@ let baseFaviconHref = "";
 let lastBrowserNotificationSignature = "";
 let lastBrowserNotificationTotal = 0;
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+const CHAT_EMOJI_PICKER_EMOJIS = [
+  "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+  "😊", "😇", "🙂", "😉", "😍", "😘", "😜", "🤪",
+  "😎", "🥳", "🤩", "😋", "😢", "😭", "😡", "😤",
+  "👍", "👎", "👏", "🙌", "🙏", "🤝", "💪", "🔥",
+  "❤️", "🧡", "💛", "💚", "💙", "💜", "🤍", "💔",
+  "✨", "⭐", "🎉", "💯", "✅", "❌", "👀", "💬",
+  "🍕", "☕", "🎮", "🎵", "📷", "🖼️", "🚀", "🌙"
+];
 const chatAvatarCache = {};
 let activeReactionMessageId = null;
 let activeReplyMessage = null;
@@ -328,6 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setBottomNavHidden(false);
   setupAutoHideBottomNav();
   updateBrowserNotificationIndicator(0);
+  renderChatEmojiPicker();
   initializeSavedLoginView();
 });
 
@@ -3131,6 +3141,7 @@ async function openChat(user){
   document.body.classList.add("chat-open");
   chatBox.style.display="flex";
   togglePhotoOptions(false);
+  toggleEmojiOptions(false);
   
   let targetUserRes = await fetch(DB_URL+`/users/${user}.json`);
   let targetUserData = await targetUserRes.json() || {};
@@ -3148,6 +3159,8 @@ function closeChat() {
   currentChatType="direct";
   currentChatGroupId=null;
   clearReplyTarget();
+  toggleEmojiOptions(false);
+  togglePhotoOptions(false);
   lastChatData = "";
 }
 
@@ -3157,6 +3170,45 @@ function togglePhotoOptions(forceShow = null) {
   if (!drawer) return;
   const shouldShow = forceShow === null ? !drawer.classList.contains("show") : forceShow;
   drawer.classList.toggle("show", shouldShow);
+  if (shouldShow) toggleEmojiOptions(false);
+}
+
+function renderChatEmojiPicker() {
+  const grid = document.getElementById("chatEmojiGrid");
+  if (!grid || grid.children.length) return;
+
+  CHAT_EMOJI_PICKER_EMOJIS.forEach(emoji => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = emoji;
+    btn.title = `Add ${emoji}`;
+    btn.onclick = () => insertChatEmoji(emoji);
+    grid.appendChild(btn);
+  });
+}
+
+function toggleEmojiOptions(forceShow = null) {
+  const drawer = document.getElementById("emojiOptionsDrawer");
+  if (!drawer) return;
+
+  renderChatEmojiPicker();
+  const shouldShow = forceShow === null ? !drawer.classList.contains("show") : forceShow;
+  drawer.classList.toggle("show", shouldShow);
+  if (shouldShow) togglePhotoOptions(false);
+}
+
+function insertChatEmoji(emoji) {
+  const input = document.getElementById("chatInput");
+  if (!input) return;
+
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+  const nextPosition = start + emoji.length;
+  input.focus();
+  input.setSelectionRange(nextPosition, nextPosition);
+  autoResizeTextarea(input);
+  typing();
 }
 
 function triggerChatPhotoInput(source = "album") {
@@ -3252,6 +3304,7 @@ async function handleChatPhotoInput(event, source = "album") {
     showCustomAlert("The photo could not be sent. Please try another image.", "Photo Failed");
   } finally {
     input.value = "";
+    toggleEmojiOptions(false);
   }
 }
 
@@ -3293,6 +3346,7 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   }
 
   togglePhotoOptions(false);
+  toggleEmojiOptions(false);
   clearReplyTarget();
   loadMessages();
   scanNotifications();
@@ -3348,6 +3402,7 @@ async function sendMessage(){
   chatInput.value="";
   clearReplyTarget();
   togglePhotoOptions(false);
+  toggleEmojiOptions(false);
   autoResizeTextarea(chatInput);
   loadMessages();
   scanNotifications();
