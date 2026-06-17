@@ -1906,33 +1906,24 @@ body.form-modal-open {
   .chat-icon-btn { width: 40px; min-width: 40px; }
 }
 
-
-/* Chat send/receive animations */
-@keyframes messageSendIn {
-  0% { opacity: 0; transform: translateX(28px) translateY(10px) scale(0.92); }
-  70% { opacity: 1; transform: translateX(-3px) translateY(0) scale(1.02); }
-  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+/* Chat message entrance animations */
+@keyframes chatSentPop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes messageReceiveIn {
-  0% { opacity: 0; transform: translateX(-18px) translateY(8px) scale(0.96); }
-  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+@keyframes chatReceivedPop {
+  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes messageBubblePop {
-  0% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.32); }
-  55% { box-shadow: 0 0 0 10px rgba(24, 119, 242, 0); }
-  100% { box-shadow: none; }
+.msg-wrapper.msg-sent-anim {
+  animation: chatSentPop 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: right bottom;
 }
 
-.msg-wrapper.msg-send-animate {
-  animation: messageSendIn 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
-}
-
-.msg-wrapper.msg-receive-animate {
-  animation: messageReceiveIn 0.28s ease both;
-}
-
-.msg-wrapper .msg.msg-bubble-pop {
-  animation: messageBubblePop 0.46s ease-out both;
+.msg-wrapper.msg-received-anim {
+  animation: chatReceivedPop 0.32s ease both;
+  transform-origin: left bottom;
 }

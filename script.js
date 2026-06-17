@@ -4,6 +4,8 @@ let currentUser=null, lastData="";
 let currentChatUser=null, lastChatData="";
 let currentChatType = "direct";
 let currentChatGroupId = null;
+let pendingChatMessageAnimationId = null;
+let forceChatScrollToBottom = false;
 let typingTimeout;
 let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
@@ -39,7 +41,6 @@ const CHAT_EMOJI_PICKER_EMOJIS = [
 const chatAvatarCache = {};
 let activeReactionMessageId = null;
 let activeReplyMessage = null;
-let pendingChatMessageAnimationId = null;
 let bottomNavScrollTimer = null;
 let lastBottomNavScrollY = 0;
 let bottomNavLockedHidden = false;
@@ -3134,6 +3135,42 @@ async function deleteOrLeaveGroupChat(groupId, event) {
   }, "Leave Group Chat");
 }
 
+
+function isChatScrolledNearBottom(threshold = 140) {
+  const box = document.getElementById("messages");
+  if (!box) return true;
+  return (box.scrollHeight - box.scrollTop - box.clientHeight) <= threshold;
+}
+
+function requestChatScrollToBottom() {
+  forceChatScrollToBottom = true;
+}
+
+function scrollChatToBottom(behavior = "auto") {
+  const box = document.getElementById("messages");
+  if (!box) return;
+
+  const doScroll = () => {
+    try {
+      box.scrollTo({ top: box.scrollHeight, behavior });
+    } catch (error) {
+      box.scrollTop = box.scrollHeight;
+    }
+  };
+
+  doScroll();
+  requestAnimationFrame(doScroll);
+  setTimeout(doScroll, 80);
+}
+
+function animateChatMessage(wrapper, sentByMe = false) {
+  if (!wrapper) return;
+  wrapper.classList.remove("msg-sent-anim", "msg-received-anim");
+  void wrapper.offsetWidth;
+  wrapper.classList.add(sentByMe ? "msg-sent-anim" : "msg-received-anim");
+  setTimeout(() => wrapper.classList.remove("msg-sent-anim", "msg-received-anim"), 520);
+}
+
 async function openChat(user){
   currentChatUser=user;
   currentChatType="direct";
@@ -3150,7 +3187,9 @@ async function openChat(user){
 
   messages.innerHTML = ""; 
   lastChatData = "";
-  loadMessages();
+  pendingChatMessageAnimationId = null;
+  requestChatScrollToBottom();
+  await loadMessages();
 }
 
 function closeChat() {
@@ -3163,6 +3202,8 @@ function closeChat() {
   toggleEmojiOptions(false);
   togglePhotoOptions(false);
   lastChatData = "";
+  forceChatScrollToBottom = false;
+  pendingChatMessageAnimationId = null;
 }
 
 // CHAT PHOTO ATTACHMENTS
@@ -3309,41 +3350,11 @@ async function handleChatPhotoInput(event, source = "album") {
   }
 }
 
-function markMessageForSendAnimation(messageId) {
-  pendingChatMessageAnimationId = String(messageId);
-}
-
-function animateNewChatMessage(wrapper, message = {}, msgId = "") {
-  if (!wrapper) return;
-
-  const shouldAnimateAsSent = pendingChatMessageAnimationId && String(msgId) === pendingChatMessageAnimationId;
-  if (!shouldAnimateAsSent && message.sender !== currentUser) return;
-
-  wrapper.classList.remove("msg-send-animate", "msg-receive-animate");
-  void wrapper.offsetWidth;
-  wrapper.classList.add(shouldAnimateAsSent ? "msg-send-animate" : "msg-receive-animate");
-
-  const bubble = wrapper.querySelector(".msg");
-  if (bubble && shouldAnimateAsSent) {
-    bubble.classList.remove("msg-bubble-pop");
-    void bubble.offsetWidth;
-    bubble.classList.add("msg-bubble-pop");
-  }
-
-  setTimeout(() => {
-    wrapper.classList.remove("msg-send-animate", "msg-receive-animate");
-    if (bubble) bubble.classList.remove("msg-bubble-pop");
-  }, 520);
-
-  if (shouldAnimateAsSent) pendingChatMessageAnimationId = null;
-}
-
 async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   const messagesUrl = getCurrentChatMessagesUrl();
   if (!messagesUrl || !photoDataUrl) return;
 
   const id = Date.now();
-  markMessageForSendAnimation(id);
   const payload = {
     type: "photo",
     text: `[PHOTO] ${fileName}`,
@@ -3369,6 +3380,9 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
     return;
   }
 
+  pendingChatMessageAnimationId = String(id);
+  requestChatScrollToBottom();
+
   if (currentChatType === "group" && currentChatGroupId) {
     await fetch(DB_URL+`/groupChats/${currentChatGroupId}.json`, {
       method: "PATCH",
@@ -3379,7 +3393,7 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   togglePhotoOptions(false);
   toggleEmojiOptions(false);
   clearReplyTarget();
-  await loadMessages();
+  loadMessages();
   scanNotifications();
 }
 
@@ -3407,7 +3421,6 @@ async function sendMessage(){
   if (!messagesUrl) return;
 
   let id=Date.now();
-  markMessageForSendAnimation(id);
 
   await fetch(`${messagesUrl}/${id}.json`,{
     method:"PUT",
@@ -3424,6 +3437,9 @@ async function sendMessage(){
     })
   });
 
+  pendingChatMessageAnimationId = String(id);
+  requestChatScrollToBottom();
+
   if (currentChatType === "group" && currentChatGroupId) {
     await fetch(DB_URL+`/groupChats/${currentChatGroupId}.json`, {
       method: "PATCH",
@@ -3436,7 +3452,7 @@ async function sendMessage(){
   togglePhotoOptions(false);
   toggleEmojiOptions(false);
   autoResizeTextarea(chatInput);
-  await loadMessages();
+  loadMessages();
   scanNotifications();
 }
 
@@ -3818,12 +3834,15 @@ async function loadMessages(){
   const messagesUrl = getCurrentChatMessagesUrl();
   if(!messagesUrl) return;
 
+  const shouldStickToBottom = forceChatScrollToBottom || isChatScrolledNearBottom();
+
   let r=await fetch(`${messagesUrl}.json`);
   let data=await r.json() || {};
 
   if(Object.keys(data).length === 0){ 
     messages.innerHTML="<div style='text-align:center; color:var(--text-secondary); margin-top:20px;'>No messages. Say Hello!</div>"; 
     closeReactionPicker();
+    forceChatScrollToBottom = false;
     return;
   }
 
@@ -3840,11 +3859,18 @@ async function loadMessages(){
     m = m || {};
     let existingMsg = document.getElementById(`msg-${id}`);
     let renderedMsg = renderChatMessageElement(id, m, existingMsg);
+    const isPendingSentMessage = pendingChatMessageAnimationId && String(id) === pendingChatMessageAnimationId;
 
     if(!existingMsg) {
       messages.appendChild(renderedMsg);
-      animateNewChatMessage(renderedMsg, m, id);
       addedNewMessage = true;
+
+      if (isPendingSentMessage) {
+        animateChatMessage(renderedMsg, true);
+        pendingChatMessageAnimationId = null;
+      } else if (!forceChatScrollToBottom) {
+        animateChatMessage(renderedMsg, m.sender === currentUser);
+      }
     } else if (messages.lastElementChild !== renderedMsg) {
       messages.appendChild(renderedMsg);
     }
@@ -3864,10 +3890,11 @@ async function loadMessages(){
     }
   }
 
-  if(addedNewMessage) {
-    messages.scrollTop=messages.scrollHeight;
+  if(forceChatScrollToBottom || (addedNewMessage && shouldStickToBottom)) {
+    scrollChatToBottom(forceChatScrollToBottom ? "auto" : "smooth");
   }
 
+  forceChatScrollToBottom = false;
   scanNotifications();
 }
 
