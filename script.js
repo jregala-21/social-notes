@@ -39,6 +39,7 @@ const CHAT_EMOJI_PICKER_EMOJIS = [
 const chatAvatarCache = {};
 let activeReactionMessageId = null;
 let activeReplyMessage = null;
+let pendingChatMessageAnimationId = null;
 let bottomNavScrollTimer = null;
 let lastBottomNavScrollY = 0;
 let bottomNavLockedHidden = false;
@@ -3308,11 +3309,41 @@ async function handleChatPhotoInput(event, source = "album") {
   }
 }
 
+function markMessageForSendAnimation(messageId) {
+  pendingChatMessageAnimationId = String(messageId);
+}
+
+function animateNewChatMessage(wrapper, message = {}, msgId = "") {
+  if (!wrapper) return;
+
+  const shouldAnimateAsSent = pendingChatMessageAnimationId && String(msgId) === pendingChatMessageAnimationId;
+  if (!shouldAnimateAsSent && message.sender !== currentUser) return;
+
+  wrapper.classList.remove("msg-send-animate", "msg-receive-animate");
+  void wrapper.offsetWidth;
+  wrapper.classList.add(shouldAnimateAsSent ? "msg-send-animate" : "msg-receive-animate");
+
+  const bubble = wrapper.querySelector(".msg");
+  if (bubble && shouldAnimateAsSent) {
+    bubble.classList.remove("msg-bubble-pop");
+    void bubble.offsetWidth;
+    bubble.classList.add("msg-bubble-pop");
+  }
+
+  setTimeout(() => {
+    wrapper.classList.remove("msg-send-animate", "msg-receive-animate");
+    if (bubble) bubble.classList.remove("msg-bubble-pop");
+  }, 520);
+
+  if (shouldAnimateAsSent) pendingChatMessageAnimationId = null;
+}
+
 async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   const messagesUrl = getCurrentChatMessagesUrl();
   if (!messagesUrl || !photoDataUrl) return;
 
   const id = Date.now();
+  markMessageForSendAnimation(id);
   const payload = {
     type: "photo",
     text: `[PHOTO] ${fileName}`,
@@ -3348,7 +3379,7 @@ async function sendPhotoMessage(photoDataUrl, fileName = "Photo") {
   togglePhotoOptions(false);
   toggleEmojiOptions(false);
   clearReplyTarget();
-  loadMessages();
+  await loadMessages();
   scanNotifications();
 }
 
@@ -3376,6 +3407,7 @@ async function sendMessage(){
   if (!messagesUrl) return;
 
   let id=Date.now();
+  markMessageForSendAnimation(id);
 
   await fetch(`${messagesUrl}/${id}.json`,{
     method:"PUT",
@@ -3404,7 +3436,7 @@ async function sendMessage(){
   togglePhotoOptions(false);
   toggleEmojiOptions(false);
   autoResizeTextarea(chatInput);
-  loadMessages();
+  await loadMessages();
   scanNotifications();
 }
 
@@ -3811,6 +3843,7 @@ async function loadMessages(){
 
     if(!existingMsg) {
       messages.appendChild(renderedMsg);
+      animateNewChatMessage(renderedMsg, m, id);
       addedNewMessage = true;
     } else if (messages.lastElementChild !== renderedMsg) {
       messages.appendChild(renderedMsg);
