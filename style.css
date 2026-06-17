@@ -2079,3 +2079,565 @@ body.folder-modal-open .nav-toggle {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Video call feature */
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-call-header-btn {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 !important;
+  border-radius: 999px;
+  font-size: 17px;
+}
+
+.video-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 7000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.video-call-overlay.hidden {
+  display: none !important;
+}
+
+.video-call-shell {
+  width: min(920px, 100%);
+  max-height: min(92dvh, 92vh);
+  background: #101214;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+  animation: modalSheetUp 0.22s ease both;
+}
+
+.video-call-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.video-call-title {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.video-call-status {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.video-call-close-btn {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 !important;
+  border-radius: 999px;
+}
+
+.video-call-stage {
+  position: relative;
+  min-height: 440px;
+  background: radial-gradient(circle at top, #2b3644, #090a0c 64%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #050607;
+}
+
+.video-placeholder {
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  padding: 22px;
+}
+
+.local-video {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  width: 180px;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 18px;
+  background: #000000;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+}
+
+.video-call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.video-call-actions button {
+  min-width: 92px;
+}
+
+.video-call-actions .video-call-control-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 !important;
+  border-radius: 999px;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.video-call-actions .video-call-control-btn.is-off {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.video-call-actions .video-call-end-btn {
+  background: var(--danger);
+  color: #ffffff;
+  transform: rotate(135deg);
+}
+
+.video-call-actions .video-call-end-btn:hover {
+  background: var(--danger-hover);
+}
+
+body.video-call-open .nav-tabs,
+body.video-call-open .nav-toggle {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.msg-call-bubble {
+  font-weight: 800;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 1px dashed var(--border-color);
+}
+
+@media (max-width: 700px) {
+  .video-call-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .video-call-shell {
+    width: 100%;
+    max-height: none;
+    min-height: 100dvh;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .video-call-stage {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .local-video {
+    width: 118px;
+    height: 156px;
+    right: 12px;
+    bottom: 12px;
+    border-radius: 16px;
+  }
+
+  .video-call-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .video-call-actions button {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .video-call-actions .video-call-control-btn {
+    width: 48px !important;
+    min-width: 48px !important;
+    justify-self: center;
+  }
+}
+
+/* Mobile-first polish for video call UI */
+.video-call-overlay {
+  --call-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --call-safe-top: env(safe-area-inset-top, 0px);
+}
+
+.video-call-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.video-call-header {
+  flex-shrink: 0;
+}
+
+.video-call-stage {
+  flex: 1 1 auto;
+}
+
+.video-call-actions {
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.video-call-actions .video-call-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.video-call-actions .video-call-end-btn {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  min-height: 54px;
+  font-size: 22px;
+}
+
+#acceptVideoCallBtn,
+#declineVideoCallBtn {
+  min-height: 46px;
+  border-radius: 999px;
+  padding: 0 18px !important;
+  font-weight: 900;
+}
+
+@media (max-width: 700px) {
+  .video-call-overlay {
+    min-height: 100dvh;
+    background: #050607;
+  }
+
+  .video-call-shell {
+    min-height: 100dvh;
+    height: 100dvh;
+    width: 100vw;
+    max-width: none;
+    background: #050607;
+  }
+
+  .video-call-header {
+    padding: calc(10px + var(--call-safe-top)) 12px 10px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.70), rgba(0,0,0,0.18));
+    border-bottom: 0;
+    position: relative;
+    z-index: 4;
+  }
+
+  .video-call-title {
+    font-size: clamp(14px, 4.2vw, 17px);
+    max-width: calc(100vw - 76px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .video-call-status {
+    font-size: 11px;
+    max-width: calc(100vw - 76px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .video-call-close-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .video-call-stage {
+    min-height: 0;
+    height: auto;
+    background: radial-gradient(circle at 50% 18%, #24364b, #050607 68%);
+  }
+
+  .remote-video {
+    object-fit: cover;
+  }
+
+  .video-placeholder {
+    width: min(82vw, 360px);
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: 13px;
+  }
+
+  .local-video {
+    width: clamp(96px, 30vw, 138px);
+    height: clamp(126px, 39vw, 182px);
+    right: 12px;
+    bottom: calc(96px + var(--call-safe-bottom));
+    border-radius: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.82);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
+  }
+
+  .video-call-actions {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(10px, 3.2vw, 16px);
+    padding: 12px 14px calc(14px + var(--call-safe-bottom));
+    background: linear-gradient(0deg, rgba(0,0,0,0.88), rgba(0,0,0,0.34));
+    border-top: 0;
+    box-shadow: 0 -18px 38px rgba(0, 0, 0, 0.34);
+  }
+
+  .video-call-actions .video-call-control-btn {
+    width: clamp(50px, 15vw, 60px) !important;
+    height: clamp(50px, 15vw, 60px) !important;
+    min-width: clamp(50px, 15vw, 60px) !important;
+    min-height: clamp(50px, 15vw, 60px) !important;
+    border-radius: 999px;
+    font-size: clamp(19px, 5.2vw, 23px);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .video-call-actions .video-call-control-btn:active {
+    transform: scale(0.92);
+  }
+
+  .video-call-actions .video-call-control-btn.is-off {
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+
+  .video-call-actions .video-call-end-btn {
+    width: clamp(58px, 17vw, 66px) !important;
+    height: clamp(58px, 17vw, 66px) !important;
+    min-width: clamp(58px, 17vw, 66px) !important;
+    min-height: clamp(58px, 17vw, 66px) !important;
+    background: var(--danger) !important;
+    box-shadow: 0 14px 30px rgba(228, 30, 63, 0.34);
+  }
+
+  #acceptVideoCallBtn,
+  #declineVideoCallBtn {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 190px;
+    min-height: 50px;
+    padding: 0 14px !important;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .local-video {
+    right: 10px;
+    bottom: calc(88px + var(--call-safe-bottom));
+  }
+
+  .video-call-actions {
+    gap: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  #acceptVideoCallBtn,
+  #declineVideoCallBtn {
+    max-width: none;
+    font-size: 13px;
+  }
+}
+
+@media (max-height: 560px) and (max-width: 700px) {
+  .video-call-header {
+    padding-top: calc(6px + var(--call-safe-top));
+    padding-bottom: 6px;
+  }
+
+  .local-video {
+    width: 92px;
+    height: 116px;
+    bottom: calc(78px + var(--call-safe-bottom));
+  }
+
+  .video-call-actions {
+    padding-top: 8px;
+    padding-bottom: calc(8px + var(--call-safe-bottom));
+  }
+
+  .video-call-actions .video-call-control-btn {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+
+  .video-call-actions .video-call-end-btn {
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    min-height: 56px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 900px) and (max-height: 520px) {
+  .video-call-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.74), transparent);
+  }
+
+  .video-call-actions {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    width: auto;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.46);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .local-video {
+    width: 118px;
+    height: 86px;
+    right: 12px;
+    bottom: 82px;
+  }
+}
+
+
+/* Movable local camera preview so the other user's video stays visible */
+.video-call-stage {
+  isolation: isolate;
+}
+
+.local-video {
+  top: 16px;
+  right: 16px;
+  bottom: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 6;
+}
+
+.local-video.dragging {
+  cursor: grabbing;
+  opacity: 0.92;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.58), 0 0 0 3px rgba(255, 255, 255, 0.20);
+}
+
+.local-video::after {
+  content: "";
+}
+
+@media (max-width: 700px) {
+  .local-video {
+    width: clamp(82px, 24vw, 112px);
+    height: clamp(110px, 32vw, 150px);
+    top: calc(12px + var(--call-safe-top));
+    right: 12px;
+    bottom: auto;
+    border-radius: 16px;
+  }
+
+  .video-call-stage {
+    padding-bottom: 0;
+  }
+
+  .remote-video {
+    object-position: center center;
+  }
+}
+
+@media (max-width: 420px) {
+  .local-video {
+    width: clamp(76px, 23vw, 96px);
+    height: clamp(100px, 30vw, 130px);
+    top: calc(10px + var(--call-safe-top));
+    right: 10px;
+    bottom: auto;
+  }
+}
+
+@media (max-height: 560px) and (max-width: 700px) {
+  .local-video {
+    width: 82px;
+    height: 104px;
+    top: calc(8px + var(--call-safe-top));
+    bottom: auto;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 900px) and (max-height: 520px) {
+  .local-video {
+    width: 96px;
+    height: 72px;
+    top: 54px;
+    right: 10px;
+    bottom: auto;
+  }
+}

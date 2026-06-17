@@ -41,6 +41,20 @@ let activeReactionMessageId = null;
 let activeChatMessageActionId = null;
 let activeReplyMessage = null;
 let pendingChatMessageAnimationId = null;
+let videoCallPeerConnection = null;
+let videoCallLocalStream = null;
+let currentVideoCallId = null;
+let currentVideoCallPeer = null;
+let currentVideoCallRole = null;
+let currentIncomingVideoCall = null;
+let videoCallPollTimer = null;
+let incomingVideoCallPollTimer = null;
+let videoCallSeenRemoteCandidates = new Set();
+let videoCallRemoteDescriptionSet = false;
+let videoCallMuted = false;
+let videoCallCameraOff = false;
+let localVideoPreviewDragState = null;
+let localVideoPreviewDragSetup = false;
 let forceChatScrollToBottomOnNextLoad = false;
 let chatSmoothScrollTimer = null;
 let chatScrollFrameId = null;
@@ -345,6 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateBrowserNotificationIndicator(0);
   renderChatEmojiPicker();
   initializeSavedLoginView();
+  startIncomingVideoCallWatcher();
 });
 
 // Chat photo upload and text media support uses the user's camera/album plus normal message text.
@@ -2840,6 +2855,567 @@ function getCurrentTypingUrl() {
   return "";
 }
 
+
+
+function clampLocalVideoPreviewValue(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getLocalVideoPreviewBounds() {
+  const localVideo = document.getElementById("localVideo");
+  const stage = document.querySelector(".video-call-stage");
+  if (!localVideo || !stage) return null;
+
+  const stageRect = stage.getBoundingClientRect();
+  const videoRect = localVideo.getBoundingClientRect();
+  const padding = window.innerWidth <= 700 ? 10 : 14;
+
+  return {
+    stage,
+    localVideo,
+    stageRect,
+    videoRect,
+    padding,
+    minX: padding,
+    minY: padding,
+    maxX: Math.max(padding, stageRect.width - videoRect.width - padding),
+    maxY: Math.max(padding, stageRect.height - videoRect.height - padding)
+  };
+}
+
+function moveLocalVideoPreviewTo(x, y) {
+  const bounds = getLocalVideoPreviewBounds();
+  if (!bounds) return;
+
+  const nextX = clampLocalVideoPreviewValue(x, bounds.minX, bounds.maxX);
+  const nextY = clampLocalVideoPreviewValue(y, bounds.minY, bounds.maxY);
+
+  bounds.localVideo.style.left = `${nextX}px`;
+  bounds.localVideo.style.top = `${nextY}px`;
+  bounds.localVideo.style.right = "auto";
+  bounds.localVideo.style.bottom = "auto";
+  bounds.localVideo.dataset.customPosition = "true";
+}
+
+function resetLocalVideoPreviewPosition() {
+  const localVideo = document.getElementById("localVideo");
+  if (!localVideo) return;
+
+  localVideo.style.left = "";
+  localVideo.style.top = "";
+  localVideo.style.right = "";
+  localVideo.style.bottom = "";
+  delete localVideo.dataset.customPosition;
+}
+
+function keepLocalVideoPreviewInBounds() {
+  const localVideo = document.getElementById("localVideo");
+  const bounds = getLocalVideoPreviewBounds();
+  if (!localVideo || !bounds || localVideo.dataset.customPosition !== "true") return;
+
+  const currentX = Number.parseFloat(localVideo.style.left || "0");
+  const currentY = Number.parseFloat(localVideo.style.top || "0");
+  moveLocalVideoPreviewTo(currentX, currentY);
+}
+
+function setupLocalVideoPreviewDrag() {
+  if (localVideoPreviewDragSetup) return;
+  const localVideo = document.getElementById("localVideo");
+  if (!localVideo) return;
+
+  localVideoPreviewDragSetup = true;
+
+  localVideo.addEventListener("pointerdown", (event) => {
+    const modal = document.getElementById("videoCallModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+
+    const bounds = getLocalVideoPreviewBounds();
+    if (!bounds) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    localVideo.setPointerCapture?.(event.pointerId);
+    localVideo.classList.add("dragging");
+
+    const startLeft = bounds.videoRect.left - bounds.stageRect.left;
+    const startTop = bounds.videoRect.top - bounds.stageRect.top;
+
+    localVideoPreviewDragState = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startLeft,
+      startTop,
+      moved: false
+    };
+  });
+
+  localVideo.addEventListener("pointermove", (event) => {
+    if (!localVideoPreviewDragState || localVideoPreviewDragState.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    const dx = event.clientX - localVideoPreviewDragState.startClientX;
+    const dy = event.clientY - localVideoPreviewDragState.startClientY;
+
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) localVideoPreviewDragState.moved = true;
+    moveLocalVideoPreviewTo(localVideoPreviewDragState.startLeft + dx, localVideoPreviewDragState.startTop + dy);
+  });
+
+  const finishDrag = (event) => {
+    if (!localVideoPreviewDragState || localVideoPreviewDragState.pointerId !== event.pointerId) return;
+    localVideo.releasePointerCapture?.(event.pointerId);
+    localVideo.classList.remove("dragging");
+    localVideoPreviewDragState = null;
+  };
+
+  localVideo.addEventListener("pointerup", finishDrag);
+  localVideo.addEventListener("pointercancel", finishDrag);
+  localVideo.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resetLocalVideoPreviewPosition();
+  });
+
+  window.addEventListener("resize", keepLocalVideoPreviewInBounds);
+  window.addEventListener("orientationchange", () => setTimeout(keepLocalVideoPreviewInBounds, 250));
+}
+
+// VIDEO CALLS (WebRTC + Firebase Realtime Database signaling)
+function getVideoCallPath(callId = currentVideoCallId) {
+  return callId ? `${DB_URL}/calls/${callId}` : "";
+}
+
+function getDirectVideoCallId(peerUsername) {
+  return `direct_${chatId(currentUser, peerUsername)}`;
+}
+
+function getVideoCallPeerLabel(peerUsername) {
+  return peerUsername ? `@${peerUsername}` : "this user";
+}
+
+function browserCanUseCameraAndMicrophone() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection);
+}
+
+function showVideoCallModal(title = "Video Call", status = "Connecting...") {
+  const modal = document.getElementById("videoCallModal");
+  if (!modal) return;
+  document.getElementById("videoCallTitle").textContent = title;
+  document.getElementById("videoCallStatus").textContent = status;
+  modal.classList.remove("hidden");
+  document.body.classList.add("video-call-open");
+  setupLocalVideoPreviewDrag();
+  setTimeout(keepLocalVideoPreviewInBounds, 60);
+}
+
+function hideVideoCallModalOnly() {
+  const modal = document.getElementById("videoCallModal");
+  if (modal) modal.classList.add("hidden");
+  document.body.classList.remove("video-call-open");
+}
+
+function setVideoCallStatus(status) {
+  const statusEl = document.getElementById("videoCallStatus");
+  if (statusEl) statusEl.textContent = status;
+}
+
+function setVideoCallButtons(mode = "active") {
+  const acceptBtn = document.getElementById("acceptVideoCallBtn");
+  const declineBtn = document.getElementById("declineVideoCallBtn");
+  const muteBtn = document.getElementById("muteVideoCallBtn");
+  const cameraBtn = document.getElementById("cameraVideoCallBtn");
+  const endBtn = document.getElementById("endVideoCallBtn");
+
+  const incoming = mode === "incoming";
+  if (acceptBtn) acceptBtn.style.display = incoming ? "inline-flex" : "none";
+  if (declineBtn) declineBtn.style.display = incoming ? "inline-flex" : "none";
+  if (muteBtn) muteBtn.style.display = incoming ? "none" : "inline-flex";
+  if (cameraBtn) cameraBtn.style.display = incoming ? "none" : "inline-flex";
+  if (endBtn) endBtn.style.display = incoming ? "none" : "inline-flex";
+}
+
+function attachVideoStreams() {
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
+  if (localVideo && videoCallLocalStream) localVideo.srcObject = videoCallLocalStream;
+  if (remoteVideo && !remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+}
+
+async function prepareLocalVideoStream() {
+  if (!browserCanUseCameraAndMicrophone()) {
+    showCustomAlert("Video calls need a browser that supports camera, microphone, and WebRTC.", "Video Call Not Supported");
+    return null;
+  }
+
+  if (!window.isSecureContext && location.protocol !== "file:") {
+    showCustomAlert("Video calls need HTTPS or localhost so the browser can allow camera and microphone access.", "Secure Site Needed");
+    return null;
+  }
+
+  if (videoCallLocalStream) return videoCallLocalStream;
+
+  try {
+    videoCallLocalStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    videoCallMuted = false;
+    videoCallCameraOff = false;
+    updateVideoCallToggleButtons();
+    attachVideoStreams();
+    return videoCallLocalStream;
+  } catch (error) {
+    console.warn("Camera/microphone request failed", error);
+    showCustomAlert("Camera or microphone permission was not allowed, or no camera/microphone is available.", "Video Call Failed");
+    return null;
+  }
+}
+
+function createVideoPeerConnection(role) {
+  const pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ]
+  });
+
+  pc.onicecandidate = async (event) => {
+    if (!event.candidate || !currentVideoCallId || !role) return;
+    const branch = role === "caller" ? "callerCandidates" : "calleeCandidates";
+    const candidateKey = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    await fetch(`${getVideoCallPath()}/${branch}/${candidateKey}.json`, {
+      method: "PUT",
+      body: JSON.stringify(event.candidate.toJSON ? event.candidate.toJSON() : event.candidate)
+    }).catch(error => console.warn("Could not save ICE candidate", error));
+  };
+
+  pc.ontrack = (event) => {
+    const remoteVideo = document.getElementById("remoteVideo");
+    const placeholder = document.getElementById("remoteVideoPlaceholder");
+    if (!remoteVideo) return;
+
+    if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+    const remoteStream = remoteVideo.srcObject;
+    event.streams[0].getTracks().forEach(track => {
+      if (!remoteStream.getTracks().some(existing => existing.id === track.id)) {
+        remoteStream.addTrack(track);
+      }
+    });
+    if (placeholder) placeholder.style.display = "none";
+    setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
+      setVideoCallStatus(pc.connectionState === "failed" ? "Call connection failed." : "Call ended.");
+    }
+  };
+
+  if (videoCallLocalStream) {
+    videoCallLocalStream.getTracks().forEach(track => pc.addTrack(track, videoCallLocalStream));
+  }
+
+  return pc;
+}
+
+async function startVideoCall() {
+  if (!currentUser) return;
+
+  if (currentChatType === "group") {
+    showCustomAlert("Video calls are available for direct messages first. Group video calls would need a separate room system.", "Direct Calls Only");
+    return;
+  }
+
+  if (!currentChatUser) {
+    showCustomAlert("Open a direct chat first, then tap the video button.", "No Chat Open");
+    return;
+  }
+
+  const peer = currentChatUser;
+  const stream = await prepareLocalVideoStream();
+  if (!stream) return;
+
+  currentVideoCallPeer = peer;
+  currentVideoCallId = getDirectVideoCallId(peer);
+  currentVideoCallRole = "caller";
+  videoCallSeenRemoteCandidates = new Set();
+  videoCallRemoteDescriptionSet = false;
+  currentIncomingVideoCall = null;
+
+  showVideoCallModal(`Calling ${getVideoCallPeerLabel(peer)}`, "Starting call...");
+  setVideoCallButtons("active");
+  attachVideoStreams();
+
+  videoCallPeerConnection = createVideoPeerConnection("caller");
+  const offer = await videoCallPeerConnection.createOffer();
+  await videoCallPeerConnection.setLocalDescription(offer);
+
+  await fetch(`${getVideoCallPath()}.json`, {
+    method: "PUT",
+    body: JSON.stringify({
+      type: "direct",
+      caller: currentUser,
+      receiver: peer,
+      status: "ringing",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      offer: { type: offer.type, sdp: offer.sdp },
+      callerName: getCurrentDisplayName(),
+      callerAvatar: getCurrentAvatar()
+    })
+  });
+
+  setVideoCallStatus(`Ringing ${getVideoCallPeerLabel(peer)}...`);
+  startVideoCallPolling();
+  await sendVideoCallSystemMessage("📹 Video call started.");
+}
+
+function showIncomingVideoCall(callId, call = {}) {
+  if (!callId || currentVideoCallId || currentIncomingVideoCall) return;
+  currentIncomingVideoCall = { callId, call };
+  currentVideoCallId = callId;
+  currentVideoCallPeer = call.caller || "";
+  currentVideoCallRole = "callee";
+  videoCallSeenRemoteCandidates = new Set();
+  videoCallRemoteDescriptionSet = false;
+
+  showVideoCallModal("Incoming Video Call", `${getVideoCallPeerLabel(call.caller)} is calling...`);
+  setVideoCallButtons("incoming");
+}
+
+async function acceptIncomingVideoCall() {
+  if (!currentIncomingVideoCall) return;
+  const { callId, call } = currentIncomingVideoCall;
+  const peer = call.caller;
+
+  const stream = await prepareLocalVideoStream();
+  if (!stream) return;
+
+  currentVideoCallId = callId;
+  currentVideoCallPeer = peer;
+  currentVideoCallRole = "callee";
+  currentIncomingVideoCall = null;
+  setVideoCallButtons("active");
+  showVideoCallModal(`Video Call with ${getVideoCallPeerLabel(peer)}`, "Connecting...");
+  attachVideoStreams();
+
+  videoCallPeerConnection = createVideoPeerConnection("callee");
+
+  if (!call.offer) {
+    showCustomAlert("This call no longer has a valid connection offer.", "Call Failed");
+    await endVideoCall(false);
+    return;
+  }
+
+  await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+  videoCallRemoteDescriptionSet = true;
+  const answer = await videoCallPeerConnection.createAnswer();
+  await videoCallPeerConnection.setLocalDescription(answer);
+
+  await fetch(`${getVideoCallPath(callId)}.json`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "connected",
+      updatedAt: Date.now(),
+      answer: { type: answer.type, sdp: answer.sdp }
+    })
+  });
+
+  if (!currentChatUser || currentChatUser !== peer) {
+    currentChatUser = peer;
+  }
+
+  startVideoCallPolling();
+  setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(peer)}`);
+  await sendVideoCallSystemMessage("📹 Video call answered.");
+}
+
+async function declineIncomingVideoCall() {
+  if (!currentIncomingVideoCall) return;
+  const { callId } = currentIncomingVideoCall;
+  await fetch(`${getVideoCallPath(callId)}.json`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "declined", updatedAt: Date.now(), declinedBy: currentUser })
+  }).catch(error => console.warn("Could not decline call", error));
+  cleanupVideoCall(false);
+}
+
+async function pollVideoCallState() {
+  if (!currentVideoCallId || !videoCallPeerConnection) return;
+
+  const response = await fetch(`${getVideoCallPath()}.json`).catch(() => null);
+  const call = response ? await response.json() : null;
+  if (!call) {
+    cleanupVideoCall(false);
+    return;
+  }
+
+  if (["ended", "declined"].includes(call.status)) {
+    setVideoCallStatus(call.status === "declined" ? "Call declined." : "Call ended.");
+    cleanupVideoCall(false, true);
+    return;
+  }
+
+  if (currentVideoCallRole === "caller" && call.answer && !videoCallRemoteDescriptionSet) {
+    await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
+    videoCallRemoteDescriptionSet = true;
+    setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
+  }
+
+  const remoteBranch = currentVideoCallRole === "caller" ? "calleeCandidates" : "callerCandidates";
+  const candidates = call[remoteBranch] || {};
+  for (const [key, candidate] of Object.entries(candidates)) {
+    if (videoCallSeenRemoteCandidates.has(key)) continue;
+    videoCallSeenRemoteCandidates.add(key);
+    try {
+      await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      console.warn("Could not add remote ICE candidate", error);
+    }
+  }
+}
+
+function startVideoCallPolling() {
+  clearInterval(videoCallPollTimer);
+  videoCallPollTimer = setInterval(pollVideoCallState, 1100);
+  pollVideoCallState();
+}
+
+function startIncomingVideoCallWatcher() {
+  if (incomingVideoCallPollTimer) return;
+  incomingVideoCallPollTimer = setInterval(scanIncomingVideoCalls, 2200);
+}
+
+async function scanIncomingVideoCalls() {
+  if (!currentUser || currentVideoCallId || currentIncomingVideoCall) return;
+
+  const response = await fetch(`${DB_URL}/calls.json`).catch(() => null);
+  const calls = response ? await response.json() : null;
+  if (!calls) return;
+
+  const now = Date.now();
+  for (const [callId, call] of Object.entries(calls)) {
+    if (!call || call.receiver !== currentUser || call.status !== "ringing") continue;
+    if (now - Number(call.createdAt || now) > 60000) {
+      fetch(`${DB_URL}/calls/${callId}.json`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "missed", updatedAt: now })
+      }).catch(() => {});
+      continue;
+    }
+    showIncomingVideoCall(callId, call);
+    break;
+  }
+}
+
+async function endVideoCall(updateRemote = true) {
+  if (updateRemote && currentVideoCallId) {
+    await fetch(`${getVideoCallPath()}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "ended", updatedAt: Date.now(), endedBy: currentUser })
+    }).catch(error => console.warn("Could not end remote call", error));
+    await sendVideoCallSystemMessage("📹 Video call ended.");
+  }
+  cleanupVideoCall(false);
+}
+
+function cleanupVideoCall(keepModalOpen = false, closeAfterDelay = false) {
+  clearInterval(videoCallPollTimer);
+  videoCallPollTimer = null;
+
+  if (videoCallPeerConnection) {
+    videoCallPeerConnection.ontrack = null;
+    videoCallPeerConnection.onicecandidate = null;
+    videoCallPeerConnection.close();
+  }
+
+  if (videoCallLocalStream) {
+    videoCallLocalStream.getTracks().forEach(track => track.stop());
+  }
+
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
+  const placeholder = document.getElementById("remoteVideoPlaceholder");
+  if (localVideo) localVideo.srcObject = null;
+  resetLocalVideoPreviewPosition();
+  if (remoteVideo) remoteVideo.srcObject = null;
+  if (placeholder) placeholder.style.display = "flex";
+
+  videoCallPeerConnection = null;
+  videoCallLocalStream = null;
+  currentVideoCallId = null;
+  currentVideoCallPeer = null;
+  currentVideoCallRole = null;
+  currentIncomingVideoCall = null;
+  videoCallSeenRemoteCandidates = new Set();
+  videoCallRemoteDescriptionSet = false;
+  videoCallMuted = false;
+  videoCallCameraOff = false;
+  setVideoCallButtons("active");
+  updateVideoCallToggleButtons();
+
+  if (keepModalOpen) return;
+  if (closeAfterDelay) {
+    setTimeout(hideVideoCallModalOnly, 1200);
+  } else {
+    hideVideoCallModalOnly();
+  }
+}
+
+function updateVideoCallToggleButtons() {
+  const muteBtn = document.getElementById("muteVideoCallBtn");
+  const cameraBtn = document.getElementById("cameraVideoCallBtn");
+
+  if (muteBtn) {
+    muteBtn.textContent = videoCallMuted ? "🔇" : "🎙️";
+    muteBtn.title = videoCallMuted ? "Unmute microphone" : "Mute microphone";
+    muteBtn.setAttribute("aria-label", muteBtn.title);
+    muteBtn.classList.toggle("is-off", videoCallMuted);
+  }
+
+  if (cameraBtn) {
+    cameraBtn.textContent = videoCallCameraOff ? "🚫" : "📷";
+    cameraBtn.title = videoCallCameraOff ? "Turn camera on" : "Turn camera off";
+    cameraBtn.setAttribute("aria-label", cameraBtn.title);
+    cameraBtn.classList.toggle("is-off", videoCallCameraOff);
+  }
+}
+
+function toggleVideoCallMute() {
+  if (!videoCallLocalStream) return;
+  videoCallMuted = !videoCallMuted;
+  videoCallLocalStream.getAudioTracks().forEach(track => { track.enabled = !videoCallMuted; });
+  updateVideoCallToggleButtons();
+}
+
+function toggleVideoCallCamera() {
+  if (!videoCallLocalStream) return;
+  videoCallCameraOff = !videoCallCameraOff;
+  videoCallLocalStream.getVideoTracks().forEach(track => { track.enabled = !videoCallCameraOff; });
+  updateVideoCallToggleButtons();
+}
+
+async function sendVideoCallSystemMessage(text) {
+  const peer = currentVideoCallPeer || currentChatUser;
+  if (!currentUser || !peer || currentChatType === "group") return;
+  const cid = chatId(currentUser, peer);
+  const id = Date.now();
+  await fetch(`${DB_URL}/chats/${cid}/messages/${id}.json`, {
+    method: "PUT",
+    body: JSON.stringify({
+      type: "call",
+      text,
+      sender: currentUser,
+      senderName: getCurrentDisplayName(),
+      senderAvatar: getCurrentAvatar(),
+      seen: false,
+      createdAt: id,
+      reactions: {}
+    })
+  }).catch(() => {});
+  if (currentChatUser === peer) {
+    forceChatScrollToBottomOnNextLoad = true;
+    loadMessages();
+  }
+}
+
 function getCurrentDisplayName() {
   const display = document.getElementById("userDisplay");
   return (display && display.innerText ? display.innerText : currentUser) || currentUser;
@@ -3864,6 +4440,9 @@ function renderChatMessageElement(msgId, m, existingWrapper = null) {
     bubble.innerHTML = `<span class="chat-media-caption">Sent animation</span><img src="${escapeHTML(cleanUrl)}" class="chat-media-view" alt="chat shared inline gif content" loading="lazy">`;
   } else if(directImageUrl) {
     bubble.innerHTML = `<span class="chat-media-caption">Sent media link</span><img src="${escapeHTML(directImageUrl)}" class="chat-media-view" alt="chat shared media link" loading="lazy"><span class="chat-media-link">${escapeHTML(messageText)}</span>`;
+  } else if ((m.type || "") === "call") {
+    bubble.classList.add("msg-call-bubble");
+    bubble.textContent = messageText || "📹 Video call";
   } else {
     const messageTextNode = document.createElement("span");
     messageTextNode.textContent = messageText;
@@ -4216,6 +4795,13 @@ async function logout(){
 setupAutoResizeTextareas();
 
 window.addEventListener('beforeunload', () => {
+  if (currentVideoCallId) {
+    fetch(`${getVideoCallPath()}.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "ended", updatedAt: Date.now(), endedBy: currentUser }),
+      keepalive: true
+    });
+  }
   if(currentUser) {
     const offlineAt = Date.now();
     fetch(DB_URL+`/users/${currentUser}.json`, {

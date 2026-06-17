@@ -331,7 +331,10 @@
       <div class="chat-header">
         <button class="secondary" onclick="closeChat()">← Back</button>
         <h4 id="chatWith">Chat</h4>
-        <button class="danger conversation-delete-btn" onclick="deleteCurrentConversation(event)" title="Delete full conversation">🗑️</button>
+        <div class="chat-header-actions">
+          <button class="secondary video-call-header-btn" onclick="startVideoCall()" title="Start video call" aria-label="Start video call">📹</button>
+          <button class="danger conversation-delete-btn" onclick="deleteCurrentConversation(event)" title="Delete full conversation">🗑️</button>
+        </div>
       </div>
       <div id="typingStatus" class="typing"></div>
       <div id="messages"></div>
@@ -478,6 +481,32 @@
       </button>
     </nav>
 
+  </div>
+</div>
+
+<div class="video-call-overlay hidden" id="videoCallModal">
+  <div class="video-call-shell" onclick="event.stopPropagation()">
+    <div class="video-call-header">
+      <div>
+        <div class="video-call-title" id="videoCallTitle">Video Call</div>
+        <div class="video-call-status" id="videoCallStatus">Connecting...</div>
+      </div>
+      <button class="secondary video-call-close-btn" onclick="endVideoCall()" title="Close video call" aria-label="Close video call">✕</button>
+    </div>
+
+    <div class="video-call-stage">
+      <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+      <div class="video-placeholder" id="remoteVideoPlaceholder">Waiting for video...</div>
+      <video id="localVideo" class="local-video" autoplay playsinline muted title="Drag to move your camera preview" aria-label="Your camera preview. Drag to move."></video>
+    </div>
+
+    <div class="video-call-actions">
+      <button id="acceptVideoCallBtn" class="small-action-btn" onclick="acceptIncomingVideoCall()">Accept</button>
+      <button id="declineVideoCallBtn" class="secondary small-action-btn" onclick="declineIncomingVideoCall()">Decline</button>
+      <button id="muteVideoCallBtn" class="video-call-control-btn" onclick="toggleVideoCallMute()" title="Mute microphone" aria-label="Mute microphone">🎙️</button>
+      <button id="cameraVideoCallBtn" class="video-call-control-btn" onclick="toggleVideoCallCamera()" title="Turn camera off" aria-label="Turn camera off">📷</button>
+      <button id="endVideoCallBtn" class="video-call-control-btn video-call-end-btn" onclick="endVideoCall()" title="End call" aria-label="End call">📞</button>
+    </div>
   </div>
 </div>
 
