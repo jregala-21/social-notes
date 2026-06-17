@@ -1905,3 +1905,34 @@ body.form-modal-open {
   .emoji-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .chat-icon-btn { width: 40px; min-width: 40px; }
 }
+
+
+/* Chat send/receive animations */
+@keyframes messageSendIn {
+  0% { opacity: 0; transform: translateX(28px) translateY(10px) scale(0.92); }
+  70% { opacity: 1; transform: translateX(-3px) translateY(0) scale(1.02); }
+  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+}
+
+@keyframes messageReceiveIn {
+  0% { opacity: 0; transform: translateX(-18px) translateY(8px) scale(0.96); }
+  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+}
+
+@keyframes messageBubblePop {
+  0% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.32); }
+  55% { box-shadow: 0 0 0 10px rgba(24, 119, 242, 0); }
+  100% { box-shadow: none; }
+}
+
+.msg-wrapper.msg-send-animate {
+  animation: messageSendIn 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+.msg-wrapper.msg-receive-animate {
+  animation: messageReceiveIn 0.28s ease both;
+}
+
+.msg-wrapper .msg.msg-bubble-pop {
+  animation: messageBubblePop 0.46s ease-out both;
+}
