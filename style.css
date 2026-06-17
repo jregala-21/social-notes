@@ -717,9 +717,15 @@ body.chat-open .nav-toggle {
 
 .msg-del-btn {
   background: none; border: none; padding: 4px; cursor: pointer;
-  font-size: 12px; opacity: 0; transition: opacity 0.2s; color: var(--danger);
+  font-size: 12px; opacity: 0; pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease; color: var(--danger);
+  transform: scale(0.92);
 }
-.msg-wrapper:hover .msg-del-btn { opacity: 1; }
+.msg-wrapper.actions-visible .msg-del-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
 
 .msg-content-stack {
   display: flex;
@@ -753,11 +759,17 @@ body.chat-open .nav-toggle {
   box-shadow: 0 2px 8px rgba(0,0,0,0.10);
   transform: scale(0.92);
 }
-.msg-reaction-btn:hover { background: var(--border-color); color: var(--text-primary); opacity: 1; transform: scale(1); }
-.msg-wrapper:hover .msg-reaction-btn,
-.msg-wrapper:focus-within .msg-reaction-btn { opacity: 1; }
+.msg-reaction-btn:hover { background: var(--border-color); color: var(--text-primary); transform: scale(1); }
+.msg-wrapper.actions-visible .msg-reaction-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.msg-wrapper:not(.actions-visible) .msg-reaction-btn {
+  pointer-events: none;
+}
 @media (hover: none) {
-  .msg-reaction-btn { opacity: 0.82; }
+  .msg-wrapper:not(.actions-visible) .msg-reaction-btn { opacity: 0; }
 }
 .reaction-picker {
   position: fixed;
@@ -1219,8 +1231,13 @@ body.chat-open .nav-toggle {
     border-radius: 18px 18px 0 0;
   }
 
-  .msg-del-btn {
+  .msg-wrapper:not(.actions-visible) .msg-del-btn {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .msg-wrapper.actions-visible .msg-del-btn {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -1906,24 +1923,159 @@ body.form-modal-open {
   .chat-icon-btn { width: 40px; min-width: 40px; }
 }
 
-/* Chat message entrance animations */
-@keyframes chatSentPop {
-  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
-  60% { opacity: 1; transform: translateY(-2px) scale(1.02); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+/* Smoother chat send motion */
+@keyframes messageSendSmooth {
+  0% { opacity: 0; transform: translateX(18px) translateY(14px) scale(0.94); filter: blur(1px); }
+  58% { opacity: 1; transform: translateX(-2px) translateY(-1px) scale(1.015); filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); filter: blur(0); }
 }
 
-@keyframes chatReceivedPop {
-  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes messageReceiveSmooth {
+  0% { opacity: 0; transform: translateX(-10px) translateY(8px) scale(0.98); }
+  100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
 }
 
-.msg-wrapper.msg-sent-anim {
-  animation: chatSentPop 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  transform-origin: right bottom;
+@keyframes messageBubbleSmoothGlow {
+  0% { box-shadow: 0 0 0 0 rgba(24, 119, 242, 0.26); }
+  70% { box-shadow: 0 0 0 9px rgba(24, 119, 242, 0); }
+  100% { box-shadow: none; }
 }
 
-.msg-wrapper.msg-received-anim {
-  animation: chatReceivedPop 0.32s ease both;
-  transform-origin: left bottom;
+.msg-wrapper.msg-send-smooth {
+  animation: messageSendSmooth 0.46s cubic-bezier(0.21, 0.95, 0.28, 1) both;
+  will-change: transform, opacity;
+}
+
+.msg-wrapper.msg-receive-smooth {
+  animation: messageReceiveSmooth 0.28s ease-out both;
+  will-change: transform, opacity;
+}
+
+.msg-wrapper .msg.msg-bubble-smooth {
+  animation: messageBubbleSmoothGlow 0.6s ease-out both;
+}
+
+/* Folders modal: blurred background with the folder tools inside a focused sheet */
+#foldersPanel.folder-card {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0;
+  padding: 14px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
+  overflow-y: auto;
+  animation: modalFadeIn 0.18s ease both;
+}
+
+#foldersPanel.folder-card.hidden {
+  display: none !important;
+}
+
+.folder-modal-sheet {
+  width: min(520px, 100%);
+  max-height: min(88dvh, 88vh);
+  overflow-y: auto;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 22px 22px 16px 16px;
+  padding: 18px;
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.28);
+  animation: modalSheetUp 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+body.folder-modal-open {
+  overflow: hidden;
+}
+
+body.folder-modal-open .nav-tabs,
+body.folder-modal-open .nav-toggle {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.folder-modal-sheet .folder-card-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.folder-modal-sheet .folder-form,
+.folder-modal-sheet #foldersList,
+.folder-modal-sheet .folder-active-panel {
+  animation: cardEnter 0.24s ease both;
+}
+
+.folder-modal-sheet .folder-row,
+.folder-modal-sheet .folder-mini-note {
+  transition: transform 0.16s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.folder-modal-sheet .folder-row:hover,
+.folder-modal-sheet .folder-mini-note:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 700px) {
+  #foldersPanel.folder-card {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .folder-modal-sheet {
+    border-radius: 22px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  }
+}
+
+@media (max-width: 640px) {
+  #foldersPanel.folder-card {
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .folder-modal-sheet {
+    max-height: calc(100dvh - 22px - env(safe-area-inset-top, 0px));
+    padding: 14px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+  }
+
+  .folder-modal-sheet .folder-card-header {
+    margin: -2px -2px 10px;
+    padding: 2px 2px 10px;
+  }
+
+  .folder-modal-sheet .folder-actions,
+  .folder-modal-sheet .folder-form-actions,
+  .folder-modal-sheet .folder-active-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .folder-modal-sheet .folder-actions button,
+  .folder-modal-sheet .folder-form-actions button,
+  .folder-modal-sheet .folder-active-actions button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .folder-modal-sheet .folder-actions,
+  .folder-modal-sheet .folder-form-actions,
+  .folder-modal-sheet .folder-active-actions {
+    grid-template-columns: 1fr;
+  }
 }
