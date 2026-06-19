@@ -51,6 +51,10 @@ let videoCallPollTimer = null;
 let incomingVideoCallPollTimer = null;
 let videoCallSeenRemoteCandidates = new Set();
 let videoCallRemoteDescriptionSet = false;
+let videoCallRemoteStream = null;
+let videoCallPendingRemoteCandidates = [];
+let videoCallHasRemoteVideoTrack = false;
+let videoCallRemotePlayRetryTimer = null;
 let videoCallMuted = false;
 let videoCallCameraOff = false;
 let localVideoPreviewDragState = null;
@@ -3034,11 +3038,87 @@ function setVideoCallButtons(mode = "active") {
   if (endBtn) endBtn.style.display = incoming ? "none" : "inline-flex";
 }
 
+function getOrCreateRemoteVideoStream() {
+  if (!videoCallRemoteStream) videoCallRemoteStream = new MediaStream();
+  return videoCallRemoteStream;
+}
+
+function playVideoElement(videoElement, retries = 3) {
+  if (!videoElement) return;
+
+  const playPromise = videoElement.play?.();
+  if (playPromise && typeof playPromise.catch === "function") {
+    playPromise.catch(error => {
+      // Some mobile browsers need a short delay after srcObject/track changes.
+      if (retries > 0) {
+        clearTimeout(videoCallRemotePlayRetryTimer);
+        videoCallRemotePlayRetryTimer = setTimeout(() => playVideoElement(videoElement, retries - 1), 250);
+      } else {
+        console.warn("Video playback did not start automatically", error);
+      }
+    });
+  }
+}
+
 function attachVideoStreams() {
   const localVideo = document.getElementById("localVideo");
   const remoteVideo = document.getElementById("remoteVideo");
-  if (localVideo && videoCallLocalStream) localVideo.srcObject = videoCallLocalStream;
-  if (remoteVideo && !remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+
+  if (localVideo && videoCallLocalStream) {
+    localVideo.muted = true;
+    localVideo.playsInline = true;
+    localVideo.autoplay = true;
+    if (localVideo.srcObject !== videoCallLocalStream) localVideo.srcObject = videoCallLocalStream;
+    playVideoElement(localVideo);
+  }
+
+  if (remoteVideo) {
+    remoteVideo.playsInline = true;
+    remoteVideo.autoplay = true;
+    const remoteStream = getOrCreateRemoteVideoStream();
+    if (remoteVideo.srcObject !== remoteStream) remoteVideo.srcObject = remoteStream;
+    playVideoElement(remoteVideo);
+  }
+}
+
+function updateRemoteVideoPlaceholder() {
+  const remoteVideo = document.getElementById("remoteVideo");
+  const placeholder = document.getElementById("remoteVideoPlaceholder");
+  if (!remoteVideo || !placeholder) return;
+
+  const remoteStream = remoteVideo.srcObject;
+  const hasLiveVideo = !!(remoteStream && remoteStream.getVideoTracks().some(track => track.readyState === "live" && track.enabled));
+  videoCallHasRemoteVideoTrack = hasLiveVideo;
+  placeholder.style.display = hasLiveVideo ? "none" : "flex";
+  placeholder.textContent = hasLiveVideo ? "" : "Connected. Waiting for the other camera video...";
+}
+
+async function flushPendingRemoteCandidates() {
+  if (!videoCallPeerConnection || !videoCallRemoteDescriptionSet) return;
+  const pending = videoCallPendingRemoteCandidates.splice(0);
+
+  for (const candidate of pending) {
+    try {
+      await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      console.warn("Could not add queued remote ICE candidate", error);
+    }
+  }
+}
+
+async function addRemoteIceCandidateSafely(candidate) {
+  if (!candidate) return;
+
+  if (!videoCallPeerConnection || !videoCallRemoteDescriptionSet) {
+    videoCallPendingRemoteCandidates.push(candidate);
+    return;
+  }
+
+  try {
+    await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch (error) {
+    console.warn("Could not add remote ICE candidate", error);
+  }
 }
 
 async function prepareLocalVideoStream() {
@@ -3088,17 +3168,31 @@ function createVideoPeerConnection(role) {
 
   pc.ontrack = (event) => {
     const remoteVideo = document.getElementById("remoteVideo");
-    const placeholder = document.getElementById("remoteVideoPlaceholder");
     if (!remoteVideo) return;
 
-    if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
-    const remoteStream = remoteVideo.srcObject;
-    event.streams[0].getTracks().forEach(track => {
+    const remoteStream = getOrCreateRemoteVideoStream();
+    const incomingTracks = event.streams && event.streams[0]
+      ? event.streams[0].getTracks()
+      : (event.track ? [event.track] : []);
+
+    incomingTracks.forEach(track => {
       if (!remoteStream.getTracks().some(existing => existing.id === track.id)) {
         remoteStream.addTrack(track);
       }
+
+      if (track.kind === "video") {
+        track.onunmute = () => {
+          updateRemoteVideoPlaceholder();
+          playVideoElement(remoteVideo);
+        };
+        track.onended = updateRemoteVideoPlaceholder;
+        track.onmute = updateRemoteVideoPlaceholder;
+      }
     });
-    if (placeholder) placeholder.style.display = "none";
+
+    if (remoteVideo.srcObject !== remoteStream) remoteVideo.srcObject = remoteStream;
+    updateRemoteVideoPlaceholder();
+    playVideoElement(remoteVideo);
     setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
   };
 
@@ -3110,6 +3204,19 @@ function createVideoPeerConnection(role) {
 
   if (videoCallLocalStream) {
     videoCallLocalStream.getTracks().forEach(track => pc.addTrack(track, videoCallLocalStream));
+  }
+
+  // If a browser/device gives only audio or only video, still negotiate receiving
+  // both directions so the other user's camera can be displayed when available.
+  try {
+    if (!videoCallLocalStream || videoCallLocalStream.getVideoTracks().length === 0) {
+      pc.addTransceiver("video", { direction: "recvonly" });
+    }
+    if (!videoCallLocalStream || videoCallLocalStream.getAudioTracks().length === 0) {
+      pc.addTransceiver("audio", { direction: "recvonly" });
+    }
+  } catch (error) {
+    // addTrack above is enough for browsers that do not allow extra transceivers.
   }
 
   return pc;
@@ -3137,6 +3244,9 @@ async function startVideoCall() {
   currentVideoCallRole = "caller";
   videoCallSeenRemoteCandidates = new Set();
   videoCallRemoteDescriptionSet = false;
+  videoCallRemoteStream = new MediaStream();
+  videoCallPendingRemoteCandidates = [];
+  videoCallHasRemoteVideoTrack = false;
   currentIncomingVideoCall = null;
 
   showVideoCallModal(`Calling ${getVideoCallPeerLabel(peer)}`, "Starting call...");
@@ -3175,6 +3285,9 @@ function showIncomingVideoCall(callId, call = {}) {
   currentVideoCallRole = "callee";
   videoCallSeenRemoteCandidates = new Set();
   videoCallRemoteDescriptionSet = false;
+  videoCallRemoteStream = new MediaStream();
+  videoCallPendingRemoteCandidates = [];
+  videoCallHasRemoteVideoTrack = false;
 
   showVideoCallModal("Incoming Video Call", `${getVideoCallPeerLabel(call.caller)} is calling...`);
   setVideoCallButtons("incoming");
@@ -3192,6 +3305,9 @@ async function acceptIncomingVideoCall() {
   currentVideoCallPeer = peer;
   currentVideoCallRole = "callee";
   currentIncomingVideoCall = null;
+  videoCallRemoteStream = new MediaStream();
+  videoCallPendingRemoteCandidates = [];
+  videoCallHasRemoteVideoTrack = false;
   setVideoCallButtons("active");
   showVideoCallModal(`Video Call with ${getVideoCallPeerLabel(peer)}`, "Connecting...");
   attachVideoStreams();
@@ -3206,6 +3322,7 @@ async function acceptIncomingVideoCall() {
 
   await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
   videoCallRemoteDescriptionSet = true;
+  await flushPendingRemoteCandidates();
   const answer = await videoCallPeerConnection.createAnswer();
   await videoCallPeerConnection.setLocalDescription(answer);
 
@@ -3256,6 +3373,7 @@ async function pollVideoCallState() {
   if (currentVideoCallRole === "caller" && call.answer && !videoCallRemoteDescriptionSet) {
     await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
     videoCallRemoteDescriptionSet = true;
+    await flushPendingRemoteCandidates();
     setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
   }
 
@@ -3264,11 +3382,7 @@ async function pollVideoCallState() {
   for (const [key, candidate] of Object.entries(candidates)) {
     if (videoCallSeenRemoteCandidates.has(key)) continue;
     videoCallSeenRemoteCandidates.add(key);
-    try {
-      await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (error) {
-      console.warn("Could not add remote ICE candidate", error);
-    }
+    await addRemoteIceCandidateSafely(candidate);
   }
 }
 
@@ -3336,7 +3450,12 @@ function cleanupVideoCall(keepModalOpen = false, closeAfterDelay = false) {
   if (localVideo) localVideo.srcObject = null;
   resetLocalVideoPreviewPosition();
   if (remoteVideo) remoteVideo.srcObject = null;
-  if (placeholder) placeholder.style.display = "flex";
+  if (placeholder) {
+    placeholder.style.display = "flex";
+    placeholder.textContent = "Waiting for video...";
+  }
+  clearTimeout(videoCallRemotePlayRetryTimer);
+  videoCallRemotePlayRetryTimer = null;
 
   videoCallPeerConnection = null;
   videoCallLocalStream = null;
@@ -3346,6 +3465,9 @@ function cleanupVideoCall(keepModalOpen = false, closeAfterDelay = false) {
   currentIncomingVideoCall = null;
   videoCallSeenRemoteCandidates = new Set();
   videoCallRemoteDescriptionSet = false;
+  videoCallRemoteStream = null;
+  videoCallPendingRemoteCandidates = [];
+  videoCallHasRemoteVideoTrack = false;
   videoCallMuted = false;
   videoCallCameraOff = false;
   setVideoCallButtons("active");
