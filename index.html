@@ -14,7 +14,7 @@
   <h1>Notes Social WebApp</h1>
   <div class="header-actions">
     <button class="refresh-btn" onclick="manualRefresh()" title="Refresh Data">🔄</button>
-    <button class="theme-btn" onclick="requestBrowserNotificationPermission()" title="Enable/Test Windows Notifications">🔔</button>
+    <button class="theme-btn" onclick="openNotificationSettings()" title="Notification Settings" id="notificationSettingsHeaderBtn">🔔</button>
     <button class="theme-btn" onclick="toggleTheme()" id="themeToggleBtn">🌙</button>
   </div>
 </header>
@@ -166,6 +166,67 @@
           <option>🐱</option><option>🔥</option><option>👻</option>
         </select>
         <button style="width:100%; margin-top: 4px;" onclick="changeAvatar()">Update Graphic</button>
+
+        <div class="notification-settings-card" id="notificationSettingsCard">
+          <div class="notification-settings-header">
+            <div>
+              <b>Notifications & Ringtones</b>
+              <div class="notification-settings-help">Control alerts for new texts and incoming calls on this device.</div>
+            </div>
+            <span class="notification-status-pill" id="notificationStatusPill">On</span>
+          </div>
+
+          <label class="settings-toggle-row">
+            <span>
+              <b>Notifications</b>
+              <small>Show in-app badges and alerts.</small>
+            </span>
+            <input type="checkbox" id="notificationsEnabledToggle" onchange="saveNotificationSettingsFromUI()">
+          </label>
+
+          <label class="settings-toggle-row">
+            <span>
+              <b>Browser popups</b>
+              <small>Use system notifications when your browser allows it.</small>
+            </span>
+            <input type="checkbox" id="browserNotificationsToggle" onchange="saveNotificationSettingsFromUI()">
+          </label>
+
+          <label class="settings-toggle-row">
+            <span>
+              <b>Ringtone sounds</b>
+              <small>Play a sound for texts and incoming video calls.</small>
+            </span>
+            <input type="checkbox" id="notificationSoundsToggle" onchange="saveNotificationSettingsFromUI()">
+          </label>
+
+          <div class="settings-select-grid">
+            <label>
+              <span>Text ringtone</span>
+              <select id="messageRingtoneSelect" onchange="saveNotificationSettingsFromUI()">
+                <option value="ding">Ding</option>
+                <option value="pop">Pop</option>
+                <option value="chime">Chime</option>
+                <option value="classic">Classic</option>
+              </select>
+            </label>
+            <label>
+              <span>Call ringtone</span>
+              <select id="callRingtoneSelect" onchange="saveNotificationSettingsFromUI()">
+                <option value="classic">Classic</option>
+                <option value="pulse">Pulse</option>
+                <option value="chime">Chime</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="notification-settings-actions">
+            <button class="secondary small-action-btn" onclick="requestBrowserNotificationPermission()">Allow Browser Popup</button>
+            <button class="secondary small-action-btn" onclick="testMessageRingtone()">Test Text</button>
+            <button class="small-action-btn" onclick="testCallRingtone()">Test Call</button>
+          </div>
+        </div>
       </div>
     </div>
 

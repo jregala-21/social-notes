@@ -1,0 +1,727 @@
+--- /mnt/data/index(8).html	2026-06-24 09:52:15.162519960 +0000
++++ /mnt/data/index(9).html	2026-06-24 09:53:15.410507541 +0000
+@@ -14,7 +14,7 @@
+   <h1>Notes Social WebApp</h1>
+   <div class="header-actions">
+     <button class="refresh-btn" onclick="manualRefresh()" title="Refresh Data">🔄</button>
+-    <button class="theme-btn" onclick="requestBrowserNotificationPermission()" title="Enable/Test Windows Notifications">🔔</button>
++    <button class="theme-btn" onclick="openNotificationSettings()" title="Notification Settings" id="notificationSettingsHeaderBtn">🔔</button>
+     <button class="theme-btn" onclick="toggleTheme()" id="themeToggleBtn">🌙</button>
+   </div>
+ </header>
+@@ -166,6 +166,67 @@
+           <option>🐱</option><option>🔥</option><option>👻</option>
+         </select>
+         <button style="width:100%; margin-top: 4px;" onclick="changeAvatar()">Update Graphic</button>
++
++        <div class="notification-settings-card" id="notificationSettingsCard">
++          <div class="notification-settings-header">
++            <div>
++              <b>Notifications & Ringtones</b>
++              <div class="notification-settings-help">Control alerts for new texts and incoming calls on this device.</div>
++            </div>
++            <span class="notification-status-pill" id="notificationStatusPill">On</span>
++          </div>
++
++          <label class="settings-toggle-row">
++            <span>
++              <b>Notifications</b>
++              <small>Show in-app badges and alerts.</small>
++            </span>
++            <input type="checkbox" id="notificationsEnabledToggle" onchange="saveNotificationSettingsFromUI()">
++          </label>
++
++          <label class="settings-toggle-row">
++            <span>
++              <b>Browser popups</b>
++              <small>Use system notifications when your browser allows it.</small>
++            </span>
++            <input type="checkbox" id="browserNotificationsToggle" onchange="saveNotificationSettingsFromUI()">
++          </label>
++
++          <label class="settings-toggle-row">
++            <span>
++              <b>Ringtone sounds</b>
++              <small>Play a sound for texts and incoming video calls.</small>
++            </span>
++            <input type="checkbox" id="notificationSoundsToggle" onchange="saveNotificationSettingsFromUI()">
++          </label>
++
++          <div class="settings-select-grid">
++            <label>
++              <span>Text ringtone</span>
++              <select id="messageRingtoneSelect" onchange="saveNotificationSettingsFromUI()">
++                <option value="ding">Ding</option>
++                <option value="pop">Pop</option>
++                <option value="chime">Chime</option>
++                <option value="classic">Classic</option>
++              </select>
++            </label>
++            <label>
++              <span>Call ringtone</span>
++              <select id="callRingtoneSelect" onchange="saveNotificationSettingsFromUI()">
++                <option value="classic">Classic</option>
++                <option value="pulse">Pulse</option>
++                <option value="chime">Chime</option>
++                <option value="urgent">Urgent</option>
++              </select>
++            </label>
++          </div>
++
++          <div class="notification-settings-actions">
++            <button class="secondary small-action-btn" onclick="requestBrowserNotificationPermission()">Allow Browser Popup</button>
++            <button class="secondary small-action-btn" onclick="testMessageRingtone()">Test Text</button>
++            <button class="small-action-btn" onclick="testCallRingtone()">Test Call</button>
++          </div>
++        </div>
+       </div>
+     </div>
+ 
+--- /mnt/data/script(2).js	2026-06-24 09:52:14.768961936 +0000
++++ /mnt/data/script(3).js	2026-06-24 09:53:15.414329460 +0000
+@@ -26,6 +26,11 @@
+ let baseFaviconHref = "";
+ let lastBrowserNotificationSignature = "";
+ let lastBrowserNotificationTotal = 0;
++let lastAudioNotificationSignature = "";
++let notificationAudioContext = null;
++let notificationAudioUnlocked = false;
++let incomingCallRingtoneTimer = null;
++let incomingCallRingtoneActive = false;
+ const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+ const CHAT_EMOJI_PICKER_EMOJIS = [
+   "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+@@ -51,6 +56,10 @@
+ let incomingVideoCallPollTimer = null;
+ let videoCallSeenRemoteCandidates = new Set();
+ let videoCallRemoteDescriptionSet = false;
++let videoCallRemoteStream = null;
++let videoCallPendingRemoteCandidates = [];
++let videoCallHasRemoteVideoTrack = false;
++let videoCallRemotePlayRetryTimer = null;
+ let videoCallMuted = false;
+ let videoCallCameraOff = false;
+ let localVideoPreviewDragState = null;
+@@ -204,6 +213,196 @@
+   }
+ }
+ 
++
++const DEFAULT_NOTIFICATION_SETTINGS = {
++  enabled: true,
++  browserEnabled: true,
++  soundEnabled: true,
++  messageRingtone: "ding",
++  callRingtone: "classic"
++};
++
++function getNotificationSettingsKey() {
++  return `notes_social_notification_settings_${currentUser || "guest"}`;
++}
++
++function getNotificationSettings() {
++  try {
++    const raw = localStorage.getItem(getNotificationSettingsKey());
++    return { ...DEFAULT_NOTIFICATION_SETTINGS, ...(raw ? JSON.parse(raw) : {}) };
++  } catch (error) {
++    return { ...DEFAULT_NOTIFICATION_SETTINGS };
++  }
++}
++
++function saveNotificationSettings(settings = {}) {
++  const merged = { ...DEFAULT_NOTIFICATION_SETTINGS, ...settings };
++  localStorage.setItem(getNotificationSettingsKey(), JSON.stringify(merged));
++  renderNotificationSettingsUI();
++  if (!merged.enabled) {
++    stopIncomingCallRingtone();
++    renderNotificationBar([]);
++  } else {
++    scanNotifications();
++  }
++  return merged;
++}
++
++function notificationAlertsEnabled() {
++  return !!getNotificationSettings().enabled;
++}
++
++function notificationSoundsEnabled() {
++  const settings = getNotificationSettings();
++  return !!(settings.enabled && settings.soundEnabled);
++}
++
++function renderNotificationSettingsUI() {
++  const settings = getNotificationSettings();
++  const enabledToggle = document.getElementById("notificationsEnabledToggle");
++  const browserToggle = document.getElementById("browserNotificationsToggle");
++  const soundsToggle = document.getElementById("notificationSoundsToggle");
++  const messageSelect = document.getElementById("messageRingtoneSelect");
++  const callSelect = document.getElementById("callRingtoneSelect");
++  const pill = document.getElementById("notificationStatusPill");
++  const headerBtn = document.getElementById("notificationSettingsHeaderBtn");
++
++  if (enabledToggle) enabledToggle.checked = !!settings.enabled;
++  if (browserToggle) browserToggle.checked = !!settings.browserEnabled;
++  if (soundsToggle) soundsToggle.checked = !!settings.soundEnabled;
++  if (messageSelect) messageSelect.value = settings.messageRingtone || DEFAULT_NOTIFICATION_SETTINGS.messageRingtone;
++  if (callSelect) callSelect.value = settings.callRingtone || DEFAULT_NOTIFICATION_SETTINGS.callRingtone;
++
++  if (pill) {
++    pill.textContent = settings.enabled ? "On" : "Off";
++    pill.classList.toggle("is-off", !settings.enabled);
++  }
++
++  if (headerBtn) {
++    headerBtn.textContent = settings.enabled ? "🔔" : "🔕";
++    headerBtn.title = settings.enabled ? "Notification Settings" : "Notifications are off";
++  }
++}
++
++function saveNotificationSettingsFromUI() {
++  const enabledToggle = document.getElementById("notificationsEnabledToggle");
++  const browserToggle = document.getElementById("browserNotificationsToggle");
++  const soundsToggle = document.getElementById("notificationSoundsToggle");
++  const messageSelect = document.getElementById("messageRingtoneSelect");
++  const callSelect = document.getElementById("callRingtoneSelect");
++
++  const settings = saveNotificationSettings({
++    enabled: enabledToggle ? enabledToggle.checked : true,
++    browserEnabled: browserToggle ? browserToggle.checked : true,
++    soundEnabled: soundsToggle ? soundsToggle.checked : true,
++    messageRingtone: messageSelect ? messageSelect.value : "ding",
++    callRingtone: callSelect ? callSelect.value : "classic"
++  });
++
++  unlockNotificationAudio();
++  showToast(settings.enabled ? "Notifications are on." : "Notifications are off.");
++}
++
++function openNotificationSettings() {
++  const settingsPanel = document.getElementById("notificationSettingsCard");
++  renderNotificationSettingsUI();
++  if (settingsPanel) {
++    switchView("friends");
++    setTimeout(() => settingsPanel.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
++  } else {
++    showCustomAlert("Open Friends > Settings to change notification and ringtone preferences.", "Notification Settings");
++  }
++}
++
++function unlockNotificationAudio() {
++  if (notificationAudioUnlocked) return true;
++  try {
++    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
++    if (!AudioContextClass) return false;
++    notificationAudioContext = notificationAudioContext || new AudioContextClass();
++    if (notificationAudioContext.state === "suspended") notificationAudioContext.resume();
++    notificationAudioUnlocked = true;
++    return true;
++  } catch (error) {
++    console.warn("Notification audio could not be unlocked", error);
++    return false;
++  }
++}
++
++function playTone(frequency = 880, duration = 0.16, startOffset = 0, volume = 0.08) {
++  if (!notificationSoundsEnabled()) return;
++  unlockNotificationAudio();
++  const ctx = notificationAudioContext;
++  if (!ctx) return;
++
++  const oscillator = ctx.createOscillator();
++  const gain = ctx.createGain();
++  oscillator.type = "sine";
++  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + startOffset);
++  gain.gain.setValueAtTime(0.0001, ctx.currentTime + startOffset);
++  gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + startOffset + 0.015);
++  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startOffset + duration);
++  oscillator.connect(gain);
++  gain.connect(ctx.destination);
++  oscillator.start(ctx.currentTime + startOffset);
++  oscillator.stop(ctx.currentTime + startOffset + duration + 0.03);
++}
++
++function playNotificationSound(kind = "message", overrideRingtone = "") {
++  if (!notificationSoundsEnabled()) return;
++
++  const settings = getNotificationSettings();
++  const ringtone = overrideRingtone || (kind === "call" ? settings.callRingtone : settings.messageRingtone);
++  const patterns = {
++    ding: [[880, 0.12, 0], [1175, 0.12, 0.14]],
++    pop: [[520, 0.09, 0], [760, 0.08, 0.1]],
++    chime: [[659, 0.14, 0], [880, 0.14, 0.16], [1046, 0.18, 0.33]],
++    classic: [[784, 0.18, 0], [988, 0.18, 0.22], [784, 0.18, 0.48], [988, 0.18, 0.7]],
++    pulse: [[660, 0.16, 0], [660, 0.16, 0.28], [660, 0.16, 0.56]],
++    urgent: [[932, 0.12, 0], [932, 0.12, 0.18], [932, 0.12, 0.36], [740, 0.18, 0.58]]
++  };
++
++  (patterns[ringtone] || patterns.ding).forEach(([frequency, duration, offset]) => {
++    playTone(frequency, duration, offset, kind === "call" ? 0.09 : 0.07);
++  });
++}
++
++function testMessageRingtone() {
++  unlockNotificationAudio();
++  playNotificationSound("message");
++}
++
++function testCallRingtone() {
++  unlockNotificationAudio();
++  playNotificationSound("call");
++}
++
++function startIncomingCallRingtone() {
++  if (!notificationSoundsEnabled() || incomingCallRingtoneActive) return;
++  incomingCallRingtoneActive = true;
++  playNotificationSound("call");
++  incomingCallRingtoneTimer = setInterval(() => {
++    if (!incomingCallRingtoneActive || !notificationSoundsEnabled()) {
++      stopIncomingCallRingtone();
++      return;
++    }
++    playNotificationSound("call");
++  }, 2600);
++}
++
++function stopIncomingCallRingtone() {
++  incomingCallRingtoneActive = false;
++  clearInterval(incomingCallRingtoneTimer);
++  incomingCallRingtoneTimer = null;
++}
++
++function playNotificationSoundForItems(items = [], total = 0, signature = "") {
++  if (!notificationSoundsEnabled() || !items.length || !total || !signature || signature === lastAudioNotificationSignature) return;
++  lastAudioNotificationSignature = signature;
++  const hasChatMessage = items.some(item => item.type === "chat" || item.type === "groupChat");
++  if (hasChatMessage) playNotificationSound("message");
++}
++
+ function showTestSystemNotification() {
+   const notice = showWindowsCompatibleNotification("Notes Social WebApp", {
+     body: "System notifications are enabled. New chats, likes, and comments should appear here.",
+@@ -278,6 +477,8 @@
+ }
+ 
+ function showBrowserNotificationSummary(items = [], total = 0, signature = "") {
++  const settings = getNotificationSettings();
++  if (!settings.enabled || !settings.browserEnabled) return;
+   if (!browserNotificationsSupported() || Notification.permission !== "granted") return;
+   if (!items.length || !total || !signature || signature === lastBrowserNotificationSignature) return;
+ 
+@@ -357,11 +558,16 @@
+   setBottomNavHidden(false);
+   setupAutoHideBottomNav();
+   updateBrowserNotificationIndicator(0);
++  renderNotificationSettingsUI();
+   renderChatEmojiPicker();
+   initializeSavedLoginView();
+   startIncomingVideoCallWatcher();
+ });
+ 
++["click", "touchstart", "keydown"].forEach(eventName => {
++  window.addEventListener(eventName, unlockNotificationAudio, { once: true, passive: true });
++});
++
+ // Chat photo upload and text media support uses the user's camera/album plus normal message text.
+ 
+ function escapeHTML(value) {
+@@ -1081,6 +1287,7 @@
+   startPresenceTracking();
+   await ensureCurrentUserPresenceFields();
+   markUserActive(true);
++  renderNotificationSettingsUI();
+   loadAll();
+   loadProfileBio();
+   updateDashboardStats();
+@@ -2519,8 +2726,9 @@
+   const list = document.getElementById("notificationList");
+   if (!shell || !summary || !countBadge || !list) return;
+ 
+-  const total = items.reduce((sum, item) => sum + (item.count || 1), 0);
+-  const chatTotal = items.filter(item => item.type === "chat" || item.type === "groupChat").reduce((sum, item) => sum + (item.count || 1), 0);
++  const settings = getNotificationSettings();
++  const total = settings.enabled ? items.reduce((sum, item) => sum + (item.count || 1), 0) : 0;
++  const chatTotal = settings.enabled ? items.filter(item => item.type === "chat" || item.type === "groupChat").reduce((sum, item) => sum + (item.count || 1), 0) : 0;
+   const noteTotal = total - chatTotal;
+ 
+   setTabBadge("chatTabBadge", chatTotal);
+@@ -2533,12 +2741,14 @@
+     document.getElementById("notificationBar")?.classList.remove("open");
+     lastBrowserNotificationTotal = 0;
+     lastBrowserNotificationSignature = "";
++    lastAudioNotificationSignature = "";
+     return;
+   }
+ 
+   const browserSignature = JSON.stringify(items.map(item => `${item.type}:${item.user || item.groupId || item.key || item.noteId}:${item.count || 1}`));
+   if (total > lastBrowserNotificationTotal || browserSignature !== lastBrowserNotificationSignature) {
+     showBrowserNotificationSummary(items, total, browserSignature);
++    playNotificationSoundForItems(items, total, browserSignature);
+   }
+   lastBrowserNotificationTotal = total;
+ 
+@@ -3034,11 +3244,87 @@
+   if (endBtn) endBtn.style.display = incoming ? "none" : "inline-flex";
+ }
+ 
++function getOrCreateRemoteVideoStream() {
++  if (!videoCallRemoteStream) videoCallRemoteStream = new MediaStream();
++  return videoCallRemoteStream;
++}
++
++function playVideoElement(videoElement, retries = 3) {
++  if (!videoElement) return;
++
++  const playPromise = videoElement.play?.();
++  if (playPromise && typeof playPromise.catch === "function") {
++    playPromise.catch(error => {
++      // Some mobile browsers need a short delay after srcObject/track changes.
++      if (retries > 0) {
++        clearTimeout(videoCallRemotePlayRetryTimer);
++        videoCallRemotePlayRetryTimer = setTimeout(() => playVideoElement(videoElement, retries - 1), 250);
++      } else {
++        console.warn("Video playback did not start automatically", error);
++      }
++    });
++  }
++}
++
+ function attachVideoStreams() {
+   const localVideo = document.getElementById("localVideo");
+   const remoteVideo = document.getElementById("remoteVideo");
+-  if (localVideo && videoCallLocalStream) localVideo.srcObject = videoCallLocalStream;
+-  if (remoteVideo && !remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
++
++  if (localVideo && videoCallLocalStream) {
++    localVideo.muted = true;
++    localVideo.playsInline = true;
++    localVideo.autoplay = true;
++    if (localVideo.srcObject !== videoCallLocalStream) localVideo.srcObject = videoCallLocalStream;
++    playVideoElement(localVideo);
++  }
++
++  if (remoteVideo) {
++    remoteVideo.playsInline = true;
++    remoteVideo.autoplay = true;
++    const remoteStream = getOrCreateRemoteVideoStream();
++    if (remoteVideo.srcObject !== remoteStream) remoteVideo.srcObject = remoteStream;
++    playVideoElement(remoteVideo);
++  }
++}
++
++function updateRemoteVideoPlaceholder() {
++  const remoteVideo = document.getElementById("remoteVideo");
++  const placeholder = document.getElementById("remoteVideoPlaceholder");
++  if (!remoteVideo || !placeholder) return;
++
++  const remoteStream = remoteVideo.srcObject;
++  const hasLiveVideo = !!(remoteStream && remoteStream.getVideoTracks().some(track => track.readyState === "live" && track.enabled));
++  videoCallHasRemoteVideoTrack = hasLiveVideo;
++  placeholder.style.display = hasLiveVideo ? "none" : "flex";
++  placeholder.textContent = hasLiveVideo ? "" : "Connected. Waiting for the other camera video...";
++}
++
++async function flushPendingRemoteCandidates() {
++  if (!videoCallPeerConnection || !videoCallRemoteDescriptionSet) return;
++  const pending = videoCallPendingRemoteCandidates.splice(0);
++
++  for (const candidate of pending) {
++    try {
++      await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
++    } catch (error) {
++      console.warn("Could not add queued remote ICE candidate", error);
++    }
++  }
++}
++
++async function addRemoteIceCandidateSafely(candidate) {
++  if (!candidate) return;
++
++  if (!videoCallPeerConnection || !videoCallRemoteDescriptionSet) {
++    videoCallPendingRemoteCandidates.push(candidate);
++    return;
++  }
++
++  try {
++    await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
++  } catch (error) {
++    console.warn("Could not add remote ICE candidate", error);
++  }
+ }
+ 
+ async function prepareLocalVideoStream() {
+@@ -3088,17 +3374,31 @@
+ 
+   pc.ontrack = (event) => {
+     const remoteVideo = document.getElementById("remoteVideo");
+-    const placeholder = document.getElementById("remoteVideoPlaceholder");
+     if (!remoteVideo) return;
+ 
+-    if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+-    const remoteStream = remoteVideo.srcObject;
+-    event.streams[0].getTracks().forEach(track => {
++    const remoteStream = getOrCreateRemoteVideoStream();
++    const incomingTracks = event.streams && event.streams[0]
++      ? event.streams[0].getTracks()
++      : (event.track ? [event.track] : []);
++
++    incomingTracks.forEach(track => {
+       if (!remoteStream.getTracks().some(existing => existing.id === track.id)) {
+         remoteStream.addTrack(track);
+       }
++
++      if (track.kind === "video") {
++        track.onunmute = () => {
++          updateRemoteVideoPlaceholder();
++          playVideoElement(remoteVideo);
++        };
++        track.onended = updateRemoteVideoPlaceholder;
++        track.onmute = updateRemoteVideoPlaceholder;
++      }
+     });
+-    if (placeholder) placeholder.style.display = "none";
++
++    if (remoteVideo.srcObject !== remoteStream) remoteVideo.srcObject = remoteStream;
++    updateRemoteVideoPlaceholder();
++    playVideoElement(remoteVideo);
+     setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
+   };
+ 
+@@ -3112,6 +3412,19 @@
+     videoCallLocalStream.getTracks().forEach(track => pc.addTrack(track, videoCallLocalStream));
+   }
+ 
++  // If a browser/device gives only audio or only video, still negotiate receiving
++  // both directions so the other user's camera can be displayed when available.
++  try {
++    if (!videoCallLocalStream || videoCallLocalStream.getVideoTracks().length === 0) {
++      pc.addTransceiver("video", { direction: "recvonly" });
++    }
++    if (!videoCallLocalStream || videoCallLocalStream.getAudioTracks().length === 0) {
++      pc.addTransceiver("audio", { direction: "recvonly" });
++    }
++  } catch (error) {
++    // addTrack above is enough for browsers that do not allow extra transceivers.
++  }
++
+   return pc;
+ }
+ 
+@@ -3137,6 +3450,9 @@
+   currentVideoCallRole = "caller";
+   videoCallSeenRemoteCandidates = new Set();
+   videoCallRemoteDescriptionSet = false;
++  videoCallRemoteStream = new MediaStream();
++  videoCallPendingRemoteCandidates = [];
++  videoCallHasRemoteVideoTrack = false;
+   currentIncomingVideoCall = null;
+ 
+   showVideoCallModal(`Calling ${getVideoCallPeerLabel(peer)}`, "Starting call...");
+@@ -3175,12 +3491,17 @@
+   currentVideoCallRole = "callee";
+   videoCallSeenRemoteCandidates = new Set();
+   videoCallRemoteDescriptionSet = false;
++  videoCallRemoteStream = new MediaStream();
++  videoCallPendingRemoteCandidates = [];
++  videoCallHasRemoteVideoTrack = false;
+ 
+   showVideoCallModal("Incoming Video Call", `${getVideoCallPeerLabel(call.caller)} is calling...`);
+   setVideoCallButtons("incoming");
++  startIncomingCallRingtone();
+ }
+ 
+ async function acceptIncomingVideoCall() {
++  stopIncomingCallRingtone();
+   if (!currentIncomingVideoCall) return;
+   const { callId, call } = currentIncomingVideoCall;
+   const peer = call.caller;
+@@ -3192,6 +3513,9 @@
+   currentVideoCallPeer = peer;
+   currentVideoCallRole = "callee";
+   currentIncomingVideoCall = null;
++  videoCallRemoteStream = new MediaStream();
++  videoCallPendingRemoteCandidates = [];
++  videoCallHasRemoteVideoTrack = false;
+   setVideoCallButtons("active");
+   showVideoCallModal(`Video Call with ${getVideoCallPeerLabel(peer)}`, "Connecting...");
+   attachVideoStreams();
+@@ -3206,6 +3530,7 @@
+ 
+   await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+   videoCallRemoteDescriptionSet = true;
++  await flushPendingRemoteCandidates();
+   const answer = await videoCallPeerConnection.createAnswer();
+   await videoCallPeerConnection.setLocalDescription(answer);
+ 
+@@ -3228,6 +3553,7 @@
+ }
+ 
+ async function declineIncomingVideoCall() {
++  stopIncomingCallRingtone();
+   if (!currentIncomingVideoCall) return;
+   const { callId } = currentIncomingVideoCall;
+   await fetch(`${getVideoCallPath(callId)}.json`, {
+@@ -3256,6 +3582,7 @@
+   if (currentVideoCallRole === "caller" && call.answer && !videoCallRemoteDescriptionSet) {
+     await videoCallPeerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
+     videoCallRemoteDescriptionSet = true;
++    await flushPendingRemoteCandidates();
+     setVideoCallStatus(`Connected with ${getVideoCallPeerLabel(currentVideoCallPeer)}`);
+   }
+ 
+@@ -3264,11 +3591,7 @@
+   for (const [key, candidate] of Object.entries(candidates)) {
+     if (videoCallSeenRemoteCandidates.has(key)) continue;
+     videoCallSeenRemoteCandidates.add(key);
+-    try {
+-      await videoCallPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+-    } catch (error) {
+-      console.warn("Could not add remote ICE candidate", error);
+-    }
++    await addRemoteIceCandidateSafely(candidate);
+   }
+ }
+ 
+@@ -3317,6 +3640,7 @@
+ }
+ 
+ function cleanupVideoCall(keepModalOpen = false, closeAfterDelay = false) {
++  stopIncomingCallRingtone();
+   clearInterval(videoCallPollTimer);
+   videoCallPollTimer = null;
+ 
+@@ -3336,7 +3660,12 @@
+   if (localVideo) localVideo.srcObject = null;
+   resetLocalVideoPreviewPosition();
+   if (remoteVideo) remoteVideo.srcObject = null;
+-  if (placeholder) placeholder.style.display = "flex";
++  if (placeholder) {
++    placeholder.style.display = "flex";
++    placeholder.textContent = "Waiting for video...";
++  }
++  clearTimeout(videoCallRemotePlayRetryTimer);
++  videoCallRemotePlayRetryTimer = null;
+ 
+   videoCallPeerConnection = null;
+   videoCallLocalStream = null;
+@@ -3346,6 +3675,9 @@
+   currentIncomingVideoCall = null;
+   videoCallSeenRemoteCandidates = new Set();
+   videoCallRemoteDescriptionSet = false;
++  videoCallRemoteStream = null;
++  videoCallPendingRemoteCandidates = [];
++  videoCallHasRemoteVideoTrack = false;
+   videoCallMuted = false;
+   videoCallCameraOff = false;
+   setVideoCallButtons("active");
+--- /mnt/data/style(2).css	2026-06-24 09:52:14.543765442 +0000
++++ /mnt/data/style(3).css	2026-06-24 09:53:15.414909617 +0000
+@@ -2641,3 +2641,108 @@
+     bottom: auto;
+   }
+ }
++
++
++/* Notification settings and ringtone controls */
++.notification-settings-card {
++  margin-top: 16px;
++  padding-top: 14px;
++  border-top: 1px solid var(--border-color);
++  display: grid;
++  gap: 12px;
++}
++
++.notification-settings-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++  gap: 10px;
++}
++
++.notification-settings-help,
++.settings-toggle-row small {
++  display: block;
++  color: var(--text-secondary);
++  font-size: 12px;
++  line-height: 1.35;
++  margin-top: 2px;
++}
++
++.notification-status-pill {
++  border-radius: 999px;
++  background: rgba(45, 183, 66, 0.14);
++  color: #1d8b34;
++  border: 1px solid rgba(45, 183, 66, 0.25);
++  padding: 5px 9px;
++  font-size: 12px;
++  font-weight: 900;
++  flex-shrink: 0;
++}
++
++.notification-status-pill.is-off {
++  background: rgba(228, 30, 63, 0.12);
++  color: var(--danger);
++  border-color: rgba(228, 30, 63, 0.22);
++}
++
++.settings-toggle-row {
++  background: var(--bg-primary);
++  border: 1px solid var(--border-color);
++  border-radius: 14px;
++  padding: 11px 12px;
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 12px;
++}
++
++.settings-toggle-row input[type="checkbox"] {
++  width: 46px;
++  height: 24px;
++  min-width: 46px;
++  margin: 0;
++  accent-color: var(--accent);
++}
++
++.settings-select-grid {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: 10px;
++}
++
++.settings-select-grid label span {
++  display: block;
++  font-size: 12px;
++  color: var(--text-secondary);
++  font-weight: 800;
++  margin-bottom: 4px;
++}
++
++.settings-select-grid select {
++  margin: 0;
++}
++
++.notification-settings-actions {
++  display: flex;
++  gap: 8px;
++  flex-wrap: wrap;
++}
++
++.notification-settings-actions button {
++  flex: 1 1 auto;
++}
++
++@media (max-width: 520px) {
++  .settings-select-grid {
++    grid-template-columns: 1fr;
++  }
++
++  .notification-settings-actions {
++    display: grid;
++    grid-template-columns: 1fr;
++  }
++
++  .notification-settings-actions button {
++    width: 100% !important;
++  }
++}

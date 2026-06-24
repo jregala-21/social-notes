@@ -26,6 +26,11 @@ const APP_TITLE = "Notes Social WebApp";
 let baseFaviconHref = "";
 let lastBrowserNotificationSignature = "";
 let lastBrowserNotificationTotal = 0;
+let lastAudioNotificationSignature = "";
+let notificationAudioContext = null;
+let notificationAudioUnlocked = false;
+let incomingCallRingtoneTimer = null;
+let incomingCallRingtoneActive = false;
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 const CHAT_EMOJI_PICKER_EMOJIS = [
   "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
@@ -208,6 +213,196 @@ function showWindowsCompatibleNotification(title, options = {}) {
   }
 }
 
+
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  enabled: true,
+  browserEnabled: true,
+  soundEnabled: true,
+  messageRingtone: "ding",
+  callRingtone: "classic"
+};
+
+function getNotificationSettingsKey() {
+  return `notes_social_notification_settings_${currentUser || "guest"}`;
+}
+
+function getNotificationSettings() {
+  try {
+    const raw = localStorage.getItem(getNotificationSettingsKey());
+    return { ...DEFAULT_NOTIFICATION_SETTINGS, ...(raw ? JSON.parse(raw) : {}) };
+  } catch (error) {
+    return { ...DEFAULT_NOTIFICATION_SETTINGS };
+  }
+}
+
+function saveNotificationSettings(settings = {}) {
+  const merged = { ...DEFAULT_NOTIFICATION_SETTINGS, ...settings };
+  localStorage.setItem(getNotificationSettingsKey(), JSON.stringify(merged));
+  renderNotificationSettingsUI();
+  if (!merged.enabled) {
+    stopIncomingCallRingtone();
+    renderNotificationBar([]);
+  } else {
+    scanNotifications();
+  }
+  return merged;
+}
+
+function notificationAlertsEnabled() {
+  return !!getNotificationSettings().enabled;
+}
+
+function notificationSoundsEnabled() {
+  const settings = getNotificationSettings();
+  return !!(settings.enabled && settings.soundEnabled);
+}
+
+function renderNotificationSettingsUI() {
+  const settings = getNotificationSettings();
+  const enabledToggle = document.getElementById("notificationsEnabledToggle");
+  const browserToggle = document.getElementById("browserNotificationsToggle");
+  const soundsToggle = document.getElementById("notificationSoundsToggle");
+  const messageSelect = document.getElementById("messageRingtoneSelect");
+  const callSelect = document.getElementById("callRingtoneSelect");
+  const pill = document.getElementById("notificationStatusPill");
+  const headerBtn = document.getElementById("notificationSettingsHeaderBtn");
+
+  if (enabledToggle) enabledToggle.checked = !!settings.enabled;
+  if (browserToggle) browserToggle.checked = !!settings.browserEnabled;
+  if (soundsToggle) soundsToggle.checked = !!settings.soundEnabled;
+  if (messageSelect) messageSelect.value = settings.messageRingtone || DEFAULT_NOTIFICATION_SETTINGS.messageRingtone;
+  if (callSelect) callSelect.value = settings.callRingtone || DEFAULT_NOTIFICATION_SETTINGS.callRingtone;
+
+  if (pill) {
+    pill.textContent = settings.enabled ? "On" : "Off";
+    pill.classList.toggle("is-off", !settings.enabled);
+  }
+
+  if (headerBtn) {
+    headerBtn.textContent = settings.enabled ? "🔔" : "🔕";
+    headerBtn.title = settings.enabled ? "Notification Settings" : "Notifications are off";
+  }
+}
+
+function saveNotificationSettingsFromUI() {
+  const enabledToggle = document.getElementById("notificationsEnabledToggle");
+  const browserToggle = document.getElementById("browserNotificationsToggle");
+  const soundsToggle = document.getElementById("notificationSoundsToggle");
+  const messageSelect = document.getElementById("messageRingtoneSelect");
+  const callSelect = document.getElementById("callRingtoneSelect");
+
+  const settings = saveNotificationSettings({
+    enabled: enabledToggle ? enabledToggle.checked : true,
+    browserEnabled: browserToggle ? browserToggle.checked : true,
+    soundEnabled: soundsToggle ? soundsToggle.checked : true,
+    messageRingtone: messageSelect ? messageSelect.value : "ding",
+    callRingtone: callSelect ? callSelect.value : "classic"
+  });
+
+  unlockNotificationAudio();
+  showToast(settings.enabled ? "Notifications are on." : "Notifications are off.");
+}
+
+function openNotificationSettings() {
+  const settingsPanel = document.getElementById("notificationSettingsCard");
+  renderNotificationSettingsUI();
+  if (settingsPanel) {
+    switchView("friends");
+    setTimeout(() => settingsPanel.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+  } else {
+    showCustomAlert("Open Friends > Settings to change notification and ringtone preferences.", "Notification Settings");
+  }
+}
+
+function unlockNotificationAudio() {
+  if (notificationAudioUnlocked) return true;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return false;
+    notificationAudioContext = notificationAudioContext || new AudioContextClass();
+    if (notificationAudioContext.state === "suspended") notificationAudioContext.resume();
+    notificationAudioUnlocked = true;
+    return true;
+  } catch (error) {
+    console.warn("Notification audio could not be unlocked", error);
+    return false;
+  }
+}
+
+function playTone(frequency = 880, duration = 0.16, startOffset = 0, volume = 0.08) {
+  if (!notificationSoundsEnabled()) return;
+  unlockNotificationAudio();
+  const ctx = notificationAudioContext;
+  if (!ctx) return;
+
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + startOffset);
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime + startOffset);
+  gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + startOffset + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startOffset + duration);
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(ctx.currentTime + startOffset);
+  oscillator.stop(ctx.currentTime + startOffset + duration + 0.03);
+}
+
+function playNotificationSound(kind = "message", overrideRingtone = "") {
+  if (!notificationSoundsEnabled()) return;
+
+  const settings = getNotificationSettings();
+  const ringtone = overrideRingtone || (kind === "call" ? settings.callRingtone : settings.messageRingtone);
+  const patterns = {
+    ding: [[880, 0.12, 0], [1175, 0.12, 0.14]],
+    pop: [[520, 0.09, 0], [760, 0.08, 0.1]],
+    chime: [[659, 0.14, 0], [880, 0.14, 0.16], [1046, 0.18, 0.33]],
+    classic: [[784, 0.18, 0], [988, 0.18, 0.22], [784, 0.18, 0.48], [988, 0.18, 0.7]],
+    pulse: [[660, 0.16, 0], [660, 0.16, 0.28], [660, 0.16, 0.56]],
+    urgent: [[932, 0.12, 0], [932, 0.12, 0.18], [932, 0.12, 0.36], [740, 0.18, 0.58]]
+  };
+
+  (patterns[ringtone] || patterns.ding).forEach(([frequency, duration, offset]) => {
+    playTone(frequency, duration, offset, kind === "call" ? 0.09 : 0.07);
+  });
+}
+
+function testMessageRingtone() {
+  unlockNotificationAudio();
+  playNotificationSound("message");
+}
+
+function testCallRingtone() {
+  unlockNotificationAudio();
+  playNotificationSound("call");
+}
+
+function startIncomingCallRingtone() {
+  if (!notificationSoundsEnabled() || incomingCallRingtoneActive) return;
+  incomingCallRingtoneActive = true;
+  playNotificationSound("call");
+  incomingCallRingtoneTimer = setInterval(() => {
+    if (!incomingCallRingtoneActive || !notificationSoundsEnabled()) {
+      stopIncomingCallRingtone();
+      return;
+    }
+    playNotificationSound("call");
+  }, 2600);
+}
+
+function stopIncomingCallRingtone() {
+  incomingCallRingtoneActive = false;
+  clearInterval(incomingCallRingtoneTimer);
+  incomingCallRingtoneTimer = null;
+}
+
+function playNotificationSoundForItems(items = [], total = 0, signature = "") {
+  if (!notificationSoundsEnabled() || !items.length || !total || !signature || signature === lastAudioNotificationSignature) return;
+  lastAudioNotificationSignature = signature;
+  const hasChatMessage = items.some(item => item.type === "chat" || item.type === "groupChat");
+  if (hasChatMessage) playNotificationSound("message");
+}
+
 function showTestSystemNotification() {
   const notice = showWindowsCompatibleNotification("Notes Social WebApp", {
     body: "System notifications are enabled. New chats, likes, and comments should appear here.",
@@ -282,6 +477,8 @@ function promptForBrowserNotificationsOnce() {
 }
 
 function showBrowserNotificationSummary(items = [], total = 0, signature = "") {
+  const settings = getNotificationSettings();
+  if (!settings.enabled || !settings.browserEnabled) return;
   if (!browserNotificationsSupported() || Notification.permission !== "granted") return;
   if (!items.length || !total || !signature || signature === lastBrowserNotificationSignature) return;
 
@@ -361,9 +558,14 @@ document.addEventListener("DOMContentLoaded", () => {
   setBottomNavHidden(false);
   setupAutoHideBottomNav();
   updateBrowserNotificationIndicator(0);
+  renderNotificationSettingsUI();
   renderChatEmojiPicker();
   initializeSavedLoginView();
   startIncomingVideoCallWatcher();
+});
+
+["click", "touchstart", "keydown"].forEach(eventName => {
+  window.addEventListener(eventName, unlockNotificationAudio, { once: true, passive: true });
 });
 
 // Chat photo upload and text media support uses the user's camera/album plus normal message text.
@@ -1085,6 +1287,7 @@ async function finishLogin(u, d) {
   startPresenceTracking();
   await ensureCurrentUserPresenceFields();
   markUserActive(true);
+  renderNotificationSettingsUI();
   loadAll();
   loadProfileBio();
   updateDashboardStats();
@@ -2523,8 +2726,9 @@ function renderNotificationBar(items) {
   const list = document.getElementById("notificationList");
   if (!shell || !summary || !countBadge || !list) return;
 
-  const total = items.reduce((sum, item) => sum + (item.count || 1), 0);
-  const chatTotal = items.filter(item => item.type === "chat" || item.type === "groupChat").reduce((sum, item) => sum + (item.count || 1), 0);
+  const settings = getNotificationSettings();
+  const total = settings.enabled ? items.reduce((sum, item) => sum + (item.count || 1), 0) : 0;
+  const chatTotal = settings.enabled ? items.filter(item => item.type === "chat" || item.type === "groupChat").reduce((sum, item) => sum + (item.count || 1), 0) : 0;
   const noteTotal = total - chatTotal;
 
   setTabBadge("chatTabBadge", chatTotal);
@@ -2537,12 +2741,14 @@ function renderNotificationBar(items) {
     document.getElementById("notificationBar")?.classList.remove("open");
     lastBrowserNotificationTotal = 0;
     lastBrowserNotificationSignature = "";
+    lastAudioNotificationSignature = "";
     return;
   }
 
   const browserSignature = JSON.stringify(items.map(item => `${item.type}:${item.user || item.groupId || item.key || item.noteId}:${item.count || 1}`));
   if (total > lastBrowserNotificationTotal || browserSignature !== lastBrowserNotificationSignature) {
     showBrowserNotificationSummary(items, total, browserSignature);
+    playNotificationSoundForItems(items, total, browserSignature);
   }
   lastBrowserNotificationTotal = total;
 
@@ -3291,9 +3497,11 @@ function showIncomingVideoCall(callId, call = {}) {
 
   showVideoCallModal("Incoming Video Call", `${getVideoCallPeerLabel(call.caller)} is calling...`);
   setVideoCallButtons("incoming");
+  startIncomingCallRingtone();
 }
 
 async function acceptIncomingVideoCall() {
+  stopIncomingCallRingtone();
   if (!currentIncomingVideoCall) return;
   const { callId, call } = currentIncomingVideoCall;
   const peer = call.caller;
@@ -3345,6 +3553,7 @@ async function acceptIncomingVideoCall() {
 }
 
 async function declineIncomingVideoCall() {
+  stopIncomingCallRingtone();
   if (!currentIncomingVideoCall) return;
   const { callId } = currentIncomingVideoCall;
   await fetch(`${getVideoCallPath(callId)}.json`, {
@@ -3431,6 +3640,7 @@ async function endVideoCall(updateRemote = true) {
 }
 
 function cleanupVideoCall(keepModalOpen = false, closeAfterDelay = false) {
+  stopIncomingCallRingtone();
   clearInterval(videoCallPollTimer);
   videoCallPollTimer = null;
 

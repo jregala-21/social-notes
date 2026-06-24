@@ -2641,3 +2641,108 @@ body.video-call-open .nav-toggle {
     bottom: auto;
   }
 }
+
+
+/* Notification settings and ringtone controls */
+.notification-settings-card {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  gap: 12px;
+}
+
+.notification-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.notification-settings-help,
+.settings-toggle-row small {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.notification-status-pill {
+  border-radius: 999px;
+  background: rgba(45, 183, 66, 0.14);
+  color: #1d8b34;
+  border: 1px solid rgba(45, 183, 66, 0.25);
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.notification-status-pill.is-off {
+  background: rgba(228, 30, 63, 0.12);
+  color: var(--danger);
+  border-color: rgba(228, 30, 63, 0.22);
+}
+
+.settings-toggle-row {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-toggle-row input[type="checkbox"] {
+  width: 46px;
+  height: 24px;
+  min-width: 46px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.settings-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-select-grid label span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.settings-select-grid select {
+  margin: 0;
+}
+
+.notification-settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notification-settings-actions button {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 520px) {
+  .settings-select-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-settings-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .notification-settings-actions button {
+    width: 100% !important;
+  }
+}
