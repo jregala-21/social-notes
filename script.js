@@ -7,7 +7,7 @@ let currentChatGroupId = null;
 let typingTimeout;
 let currentActiveNoteId = null;
 let currentCommentsStringState = ""; 
-let currentAttachedFileBase64 = { feed: "", profile: "" };
+let currentAttachedFileBase64 = { feed: null, profile: null };
 let feedLoadToken = 0;
 let profileLoadToken = 0;
 let lastProfilePostsSignature = "";
@@ -1071,6 +1071,7 @@ function getCreateNoteFields(source = "feed") {
       fileInput: document.getElementById("profileNoteFileElement"),
       previewBox: document.getElementById("profileFilePreviewBox"),
       previewImg: document.getElementById("profileFilePreviewImg"),
+      previewInfo: document.getElementById("profileFilePreviewInfo"),
       tagsInput: document.getElementById("profileNoteTagsInput"),
       priorityInput: document.getElementById("profileNotePriorityInput"),
       colorInput: document.getElementById("profileNoteColorInput")
@@ -1084,6 +1085,7 @@ function getCreateNoteFields(source = "feed") {
     fileInput: document.getElementById("noteFileElement"),
     previewBox: document.getElementById("filePreviewBox"),
     previewImg: document.getElementById("filePreviewImg"),
+    previewInfo: document.getElementById("filePreviewInfo"),
     tagsInput: document.getElementById("noteTagsInput"),
     priorityInput: document.getElementById("notePriorityInput"),
     colorInput: document.getElementById("noteColorInput")
@@ -1224,12 +1226,92 @@ function clearFeedFilters() {
 }
 
 // FILE PROCESSING AND ENFORCEMENT RULES
+const NOTE_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+function formatFileSize(bytes = 0) {
+  const size = Number(bytes) || 0;
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+  return `${size} B`;
+}
+
+function getDataUrlMimeType(dataUrl = "") {
+  const match = String(dataUrl || "").match(/^data:([^;,]+)[;,]/i);
+  return match ? match[1] : "";
+}
+
+function normalizeAttachment(attachment) {
+  if (!attachment) return null;
+
+  // Backward-compatible support for older notes that stored only an image data URL string.
+  if (typeof attachment === "string") {
+    return {
+      dataUrl: attachment,
+      name: getDataUrlMimeType(attachment).startsWith("image/") ? "Image attachment" : "Attachment",
+      type: getDataUrlMimeType(attachment),
+      size: 0
+    };
+  }
+
+  if (attachment.dataUrl) return attachment;
+  return null;
+}
+
+function isImageAttachment(attachment) {
+  const normalized = normalizeAttachment(attachment);
+  if (!normalized) return false;
+  const type = normalized.type || getDataUrlMimeType(normalized.dataUrl);
+  return String(type || "").startsWith("image/") || String(normalized.dataUrl || "").startsWith("data:image/");
+}
+
+function getAttachmentIcon(type = "", name = "") {
+  const lowerType = String(type || "").toLowerCase();
+  const lowerName = String(name || "").toLowerCase();
+  if (lowerType.includes("pdf") || lowerName.endsWith(".pdf")) return "📄";
+  if (lowerType.includes("word") || /\.(doc|docx)$/i.test(lowerName)) return "📝";
+  if (lowerType.includes("excel") || lowerType.includes("spreadsheet") || /\.(xls|xlsx|csv)$/i.test(lowerName)) return "📊";
+  if (lowerType.includes("zip") || /\.(zip|rar|7z)$/i.test(lowerName)) return "🗜️";
+  if (lowerType.startsWith("audio/")) return "🎵";
+  if (lowerType.startsWith("video/")) return "🎬";
+  return "📎";
+}
+
+function renderAttachmentHtml(attachmentValue, context = "feed") {
+  const attachment = normalizeAttachment(attachmentValue);
+  if (!attachment || !attachment.dataUrl) return "";
+
+  const name = attachment.name || "Attachment";
+  const type = attachment.type || getDataUrlMimeType(attachment.dataUrl) || "File";
+  const size = attachment.size ? formatFileSize(attachment.size) : "";
+  const safeName = escapeHTML(name);
+  const safeType = escapeHTML(type);
+  const safeSize = escapeHTML(size);
+  const safeDataUrl = escapeHTML(attachment.dataUrl);
+
+  if (isImageAttachment(attachment)) {
+    return `<img src="${safeDataUrl}" class="attached-media" alt="${safeName}">`;
+  }
+
+  const label = `${safeType}${size ? ` • ${safeSize}` : ""}`;
+  return `
+    <a class="attachment-file-card" href="${safeDataUrl}" download="${safeName}" onclick="event.stopPropagation()">
+      <span class="attachment-file-icon">${getAttachmentIcon(type, name)}</span>
+      <span class="attachment-file-details">
+        <span class="attachment-file-name">${safeName}</span>
+        <span class="attachment-file-meta">${escapeHTML(label)}</span>
+      </span>
+      <span class="attachment-file-download">Download</span>
+    </a>
+  `;
+}
+
 function previewAttachedFile(event, source = "feed") {
-  const file = event.target.files[0];
+  const input = event && event.target ? event.target : null;
+  const file = input && input.files ? input.files[0] : null;
   if (!file) return;
 
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-    showCustomAlert("PDF files are not acceptable! Please upload an image file instead.", "Invalid File Type");
+  if (file.size > NOTE_ATTACHMENT_MAX_BYTES) {
+    showCustomAlert(`This file is ${formatFileSize(file.size)}. Please upload a file up to ${formatFileSize(NOTE_ATTACHMENT_MAX_BYTES)}.`, "File Too Large");
     clearAttachedFile(null, source);
     return;
   }
@@ -1237,9 +1319,38 @@ function previewAttachedFile(event, source = "feed") {
   const fields = getCreateNoteFields(source);
   const reader = new FileReader();
   reader.onload = function(e) {
-    currentAttachedFileBase64[source] = e.target.result;
-    if (fields.previewImg) fields.previewImg.src = currentAttachedFileBase64[source];
-    if (fields.previewBox) fields.previewBox.style.display = "block";
+    const attachment = {
+      dataUrl: e.target.result,
+      name: file.name || "Attachment",
+      type: file.type || "application/octet-stream",
+      size: file.size || 0,
+      uploadedAt: Date.now()
+    };
+
+    currentAttachedFileBase64[source] = attachment;
+
+    if (fields.previewImg) {
+      if (isImageAttachment(attachment)) {
+        fields.previewImg.src = attachment.dataUrl;
+        fields.previewImg.style.display = "block";
+      } else {
+        fields.previewImg.src = "";
+        fields.previewImg.style.display = "none";
+      }
+    }
+
+    if (fields.previewInfo) {
+      fields.previewInfo.innerHTML = `
+        <b>${getAttachmentIcon(attachment.type, attachment.name)} ${escapeHTML(attachment.name)}</b>
+        <span>${escapeHTML(attachment.type || "File")} • ${escapeHTML(formatFileSize(attachment.size))}</span>
+      `;
+    }
+
+    if (fields.previewBox) fields.previewBox.style.display = "flex";
+  };
+  reader.onerror = function() {
+    showCustomAlert("This file could not be read. Please try another file.", "Attachment Failed");
+    clearAttachedFile(null, source);
   };
   reader.readAsDataURL(file);
 }
@@ -1247,10 +1358,14 @@ function previewAttachedFile(event, source = "feed") {
 function clearAttachedFile(event, source = "feed") {
   if(event) event.preventDefault();
   const fields = getCreateNoteFields(source);
-  currentAttachedFileBase64[source] = "";
+  currentAttachedFileBase64[source] = null;
   if (fields.fileInput) fields.fileInput.value = "";
   if (fields.previewBox) fields.previewBox.style.display = "none";
-  if (fields.previewImg) fields.previewImg.src = "";
+  if (fields.previewImg) {
+    fields.previewImg.src = "";
+    fields.previewImg.style.display = "block";
+  }
+  if (fields.previewInfo) fields.previewInfo.innerHTML = "";
 }
 
 // AUTHENTICATION
@@ -1950,11 +2065,7 @@ function openNoteModal(id, noteObj, userAvatar, displayedAuthorName) {
   modalPostText.innerHTML = linkifyText(noteObj.text || "");
   
   let mediaArea = document.getElementById("modalAttachmentArea");
-  if(noteObj.attachment) {
-    mediaArea.innerHTML = `<img src="${noteObj.attachment}" class="attached-media" alt="post attachment preview">`;
-  } else {
-    mediaArea.innerHTML = "";
-  }
+  mediaArea.innerHTML = renderAttachmentHtml(noteObj.attachment, "modal");
 
   modalCommentSubmitBtn.onclick = () => addModalComment(id);
   syncModalDetails(id);
@@ -2151,7 +2262,7 @@ async function loadFeed(){
     let safeOwner = escapeHTML(n.owner);
     let safeTitle = escapeHTML(n.title || "");
     let safeAvatar = escapeHTML(user.avatar || "😀");
-    let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="feed media post item">` : "";
+    let mediaMarkup = renderAttachmentHtml(n.attachment, "feed");
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
     let badgesMarkup = renderNoteBadges(n);
     let noteDate = formatDateTime(n.createdAt || id);
@@ -2296,7 +2407,7 @@ async function loadProfilePosts(requestedPrivacy = profileActivePrivacy){
     let safeTitle = escapeHTML(n.title || "");
     let safeAvatar = escapeHTML(userAvatar);
     let safePrivacy = escapeHTML(n.privacy || "public");
-    let mediaMarkup = n.attachment ? `<img src="${n.attachment}" class="attached-media" alt="profile media post item">` : "";
+    let mediaMarkup = renderAttachmentHtml(n.attachment, "profile");
     let titleMarkup = n.title ? `<div class="note-title">${safeTitle}</div>` : "";
     let badgeMarkup = renderNoteBadges(n);
     let noteDate = formatDateTime(n.createdAt || id);

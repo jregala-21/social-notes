@@ -2746,3 +2746,97 @@ body.video-call-open .nav-toggle {
     width: 100% !important;
   }
 }
+
+/* General file attachments for notes */
+.file-preview-container {
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 8px;
+}
+.file-preview-container img {
+  flex: 0 0 auto;
+}
+.file-preview-info {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.file-preview-info b {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.file-preview-info span {
+  overflow-wrap: anywhere;
+}
+.attachment-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.attachment-file-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.attachment-file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+.attachment-file-details {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.attachment-file-name {
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-file-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.attachment-file-download {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+@media (max-width: 420px) {
+  .attachment-file-card {
+    align-items: flex-start;
+  }
+  .attachment-file-download {
+    display: none;
+  }
+}
+.file-preview-container .file-preview-remove {
+  top: 6px;
+  right: 6px;
+  left: auto;
+}

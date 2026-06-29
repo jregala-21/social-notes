@@ -91,10 +91,11 @@
           </div>
           
           <div class="file-input-wrapper">
-            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
-            <input type="file" id="noteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event, 'feed')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
+            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Files:</label>
+            <input type="file" id="noteFileElement" multiple onchange="previewAttachedFile(event, 'feed')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
             <div class="file-preview-container" id="filePreviewBox">
               <img id="filePreviewImg" src="" alt="preview">
+              <div class="file-preview-info" id="filePreviewInfo"></div>
               <button class="file-preview-remove" onclick="clearAttachedFile(event, 'feed')">✕</button>
             </div>
           </div>
@@ -293,10 +294,11 @@
           </div>
           
           <div class="file-input-wrapper">
-            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Image:</label>
-            <input type="file" id="profileNoteFileElement" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewAttachedFile(event, 'profile')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
+            <label style="font-size: 13px; font-weight: bold; color: var(--text-secondary);">📎 Attach Files:</label>
+            <input type="file" id="profileNoteFileElement" multiple onchange="previewAttachedFile(event, 'profile')" style="margin: 4px 0; font-size: 13px; padding: 6px;">
             <div class="file-preview-container" id="profileFilePreviewBox">
               <img id="profileFilePreviewImg" src="" alt="preview">
+              <div class="file-preview-info" id="profileFilePreviewInfo"></div>
               <button class="file-preview-remove" onclick="clearAttachedFile(event, 'profile')">✕</button>
             </div>
           </div>
